@@ -87,6 +87,7 @@ class guass_decoder:
         self.col_trans = col_trans
         self.syndrome_transpose = syndrome_transpose
         B = hz_trans[:,len(hz_trans):len(hz_trans[0])]
+        self.B = B
         weights = [
             np.log((1 - p) / p) for i in range(H_X.shape[1])
         ]  # 初始每个qubit的对数似然比
@@ -111,17 +112,39 @@ class guass_decoder:
     
     def decode(self,syndrome):
         syndrome_copy = calculate_tran_syndrome(syndrome.copy(),self.syndrome_transpose)
-        f = (self.B_g + syndrome_copy)%2
-        our_result = np.hstack((f, self.zero_g))
+        from ldpc import bposd_decoder,bp_decoder
+        Ig = np.identity(len(self.hz_trans[0])-len(self.hz_trans))
+        BvIg = np.vstack([self.B,Ig])
+        bp_decoder = bp_decoder(
+            BvIg,
+            error_rate=p,
+            channel_probs=[None],
+            max_iter=surface_code.N,
+            bp_method="ms",  # minimum sum
+            ms_scaling_factor=0,
+        )
+        bp_decoder.decode(np.hstack([syndrome_copy,np.zeros(len(self.hz_trans[0])-len(self.hz_trans))]))
+        g = bp_decoder.bp_decoding
+        # bposddecoder = bposd_decoder(
+        #     BvIg,
+        #     error_rate=p,
+        #     channel_probs=[None],
+        #     max_iter=surface_code.N,
+        #     bp_method="ms",
+        #     ms_scaling_factor=0,
+        #     osd_method="osd_0",
+        #     osd_order=7,
+        # )
+        # g = bposddecoder.osd0_decoding
+        f = (np.dot(self.B, g) + syndrome_copy)%2
+        our_result = np.hstack((f, g))
         assert ((self.hz_trans @ our_result)%2 == syndrome_copy).all()
         trans_results = calculate_original_error(our_result,self.col_trans)
         assert ((self.hz @ trans_results)%2 == syndrome).all(), (trans_results)
         return trans_results
     
 def test_decoder(num_trials,surface_code,p,ourdecoder):
-    num_trials = 10000
-    from ldpc import bposd_decoder
-    p = 0.1  # 错误率
+    from ldpc import bposd_decoder,bp_decoder
 
     # BP+OSD
     bposddecoder = bposd_decoder(
@@ -131,9 +154,17 @@ def test_decoder(num_trials,surface_code,p,ourdecoder):
         max_iter=surface_code.N,
         bp_method="ms",
         ms_scaling_factor=0,
-        osd_method="osd_cs",
+        osd_method="osd_e",
         osd_order=7,
     )
+    # bp_decoder = bp_decoder(
+    #     surface_code.hz,
+    #     error_rate=p,
+    #     channel_probs=[None],
+    #     max_iter=surface_code.N,
+    #     bp_method="ms",  # minimum sum
+    #     ms_scaling_factor=0,
+    # )
 
     # UFDecoder
     code = Code(surface_code.hx, surface_code.hz)
@@ -156,7 +187,8 @@ def test_decoder(num_trials,surface_code,p,ourdecoder):
         """Decode"""
         # 1. BP+OSD
         bposddecoder.decode(syndrome)
-        bposd_result =  bposddecoder.osdw_decoding
+        # bposd_result =  bposddecoder.osdw_decoding
+        
         bposd_residual_error = (bposddecoder.osdw_decoding + error) % 2
         bpflag = (surface_code.lz @ bposd_residual_error % 2).any()
         if bpflag == 0:
@@ -175,14 +207,6 @@ def test_decoder(num_trials,surface_code,p,ourdecoder):
         flag = (surface_code.lz @ our_residual_error % 2).any()
         if flag == 0:
             our_num_success += 1
-
-        # g_index = col_trans[len(hz_trans):len(hz_trans[0])]
-        # bposd_g = [bposd_result[idx] for idx in g_index]
-        # True_g = [error[idx] for idx in g_index ]
-        # random_g = np.zeros_like(zero_g)
-        # for idx in range(len(random_g)):
-        #     if np.random.rand() < p:
-        #         random_g[idx] = 1
         
         
             
@@ -196,14 +220,14 @@ def test_decoder(num_trials,surface_code,p,ourdecoder):
     print(f"Our Success rate: {our_success_rate * 100:.2f}%")
 
 if __name__ == "__main__":
-    from ldpc.codes import rep_code
+    from ldpc.codes import rep_code,ring_code
     from bposd.hgp import hgp
-    h = rep_code(5)
+    h = rep_code(3)
     surface_code = hgp(h1=h, h2=h, compute_distance=True)
     surface_code.test()
-    p =0.05
+    p =0.003
     ourdecoder = guass_decoder(surface_code.hz,error_rate=p)
     ourdecoder.pre_decode()
-    test_decoder(num_trials=1000,surface_code=surface_code,p=p,ourdecoder=ourdecoder)
+    test_decoder(num_trials=10000,surface_code=surface_code,p=p,ourdecoder=ourdecoder)
     
     
