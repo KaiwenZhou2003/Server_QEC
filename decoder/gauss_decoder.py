@@ -47,6 +47,7 @@ def gauss_elimination_mod2(A):
             Augmented[:,j] = temp 
     
     syndrome_transpose= np.identity(n,dtype=int)
+    zero_row_counts = 0
     for i in range(n):
         # 对主元所在行进行消元
         if Augmented[i, i] == 1:
@@ -54,7 +55,37 @@ def gauss_elimination_mod2(A):
                 if j!=i and Augmented[j, i] == 1:
                     Augmented[j] ^= Augmented[i]
                     syndrome_transpose[j] ^= syndrome_transpose[i]
-
+        else:
+            # 如果主元为0，寻找下面一行有1的列交换
+            # print(i,i)
+            prior_jdx = i
+            min_nonzero_counts = n
+            for j in range(i+1, m):
+                if Augmented[i,j] == 1:
+                    nonzero_counts = np.sum(Augmented[:,j])
+                    if nonzero_counts < min_nonzero_counts:
+                        prior_jdx = j
+                        min_nonzero_counts = nonzero_counts
+            if prior_jdx == i:
+                zero_row_counts += 1
+                ## this i-th row is all zero, put it in the last row
+                # temp = Augmented[:,i].copy() 
+                # Augmented[:,i]  = Augmented[:,prior_jdx]
+                # Augmented[:,prior_jdx] = temp 
+                continue
+            col_trans[i],col_trans[prior_jdx] = col_trans[prior_jdx],col_trans[i]
+            temp = Augmented[:,i].copy() 
+            Augmented[:,i]  = Augmented[:,prior_jdx]
+            Augmented[:,prior_jdx] = temp 
+            
+            
+            ## 继续消元
+            for j in range(0, n):
+                if j!=i and Augmented[j, i] == 1:
+                    Augmented[j] ^= Augmented[i]
+                    syndrome_transpose[j] ^= syndrome_transpose[i]
+    Augmented = Augmented[:n-zero_row_counts,:]
+    # syndrome_transpose = syndrome_transpose[:n-zero_row_counts,:]
     return Augmented,col_trans,syndrome_transpose
 
 def calculate_tran_syndrome(syndrome,syndrome_transpose):
@@ -86,32 +117,32 @@ class guass_decoder:
         self.hz_trans = hz_trans
         self.col_trans = col_trans
         self.syndrome_transpose = syndrome_transpose
-        B = hz_trans[:,len(hz_trans):len(hz_trans[0])]
-        self.B = B
+        self.B = hz_trans[:,len(hz_trans):len(hz_trans[0])]
         weights = [
             np.log((1 - p) / p) for i in range(H_X.shape[1])
         ]  # 初始每个qubit的对数似然比
+        assert np.all([w > 0 for w in weights])
+        # W_f = weights[: H_X.shape[0]]
+        # W_g = weights[H_X.shape[0] :]
 
-        W_f = weights[: H_X.shape[0]]
-        W_g = weights[H_X.shape[0] :]
+        # W_f_B = np.dot(W_f, B)  # W_f * B
+        # W_g_B_W_f = W_f_B + W_g  # W_f * B + W_g
+        # # print(f"W_g_B_W_f = {W_g_B_W_f}")
 
-        W_f_B = np.dot(W_f, B)  # W_f * B
-        W_g_B_W_f = W_f_B + W_g  # W_f * B + W_g
-        # print(f"W_g_B_W_f = {W_g_B_W_f}")
+        # self.zero_g = np.where(
+        #     W_g_B_W_f > 0,
+        #     0,
+        #     np.where(W_g_B_W_f < 0, 1, np.random.randint(0, 2, size=W_g_B_W_f.shape)),
+        # )
+        # # print(f"g = {g}")
 
-        self.zero_g = np.where(
-            W_g_B_W_f > 0,
-            0,
-            np.where(W_g_B_W_f < 0, 1, np.random.randint(0, 2, size=W_g_B_W_f.shape)),
-        )
-        # print(f"g = {g}")
-
-        self.B_g = np.dot(B, self.zero_g)  # B * g
+        # self.B_g = np.dot(B, self.zero_g)  # B * g
         # print(f"B_g = {B_g}")
         
     
     def decode(self,syndrome):
         syndrome_copy = calculate_tran_syndrome(syndrome.copy(),self.syndrome_transpose)
+        syndrome_copy = syndrome_copy[:len(self.hz_trans)]
         from ldpc import bposd_decoder,bp_decoder
         Ig = np.identity(len(self.hz_trans[0])-len(self.hz_trans))
         BvIg = np.vstack([self.B,Ig])
@@ -125,17 +156,6 @@ class guass_decoder:
         )
         bp_decoder.decode(np.hstack([syndrome_copy,np.zeros(len(self.hz_trans[0])-len(self.hz_trans))]))
         g = bp_decoder.bp_decoding
-        # bposddecoder = bposd_decoder(
-        #     BvIg,
-        #     error_rate=p,
-        #     channel_probs=[None],
-        #     max_iter=surface_code.N,
-        #     bp_method="ms",
-        #     ms_scaling_factor=0,
-        #     osd_method="osd_0",
-        #     osd_order=7,
-        # )
-        # g = bposddecoder.osd0_decoding
         f = (np.dot(self.B, g) + syndrome_copy)%2
         our_result = np.hstack((f, g))
         assert ((self.hz_trans @ our_result)%2 == syndrome_copy).all()
@@ -198,8 +218,8 @@ def test_decoder(num_trials,surface_code,p,ourdecoder):
         uf_decoder.decode(syndrome)
         uf_result = np.array(uf_decoder.result.estimate).astype(int)
         uf_residual_error = (uf_result + error) % 2
-        flag = (surface_code.lz @ uf_residual_error % 2).any()
-        if flag == 0:
+        ufflag = (surface_code.lz @ uf_residual_error % 2).any()
+        if ufflag == 0:
             uf_num_success += 1
         # 3. Our Decoder
         our_predicates = ourdecoder.decode(syndrome)
@@ -207,6 +227,9 @@ def test_decoder(num_trials,surface_code,p,ourdecoder):
         flag = (surface_code.lz @ our_residual_error % 2).any()
         if flag == 0:
             our_num_success += 1
+        else:
+            print(np.sum(our_predicates),np.sum(error))
+            print(our_predicates,error)
         
         
             
@@ -222,10 +245,12 @@ def test_decoder(num_trials,surface_code,p,ourdecoder):
 if __name__ == "__main__":
     from ldpc.codes import rep_code,ring_code
     from bposd.hgp import hgp
-    h = rep_code(3)
+    h = ring_code(3)
     surface_code = hgp(h1=h, h2=h, compute_distance=True)
+    # surface_code = hgp(h1=surface_code.hz,h2 =surface_code.hz, compute_distance= True)
     surface_code.test()
-    p =0.003
+    p =0.07
+    print(surface_code.hz.shape)
     ourdecoder = guass_decoder(surface_code.hz,error_rate=p)
     ourdecoder.pre_decode()
     test_decoder(num_trials=10000,surface_code=surface_code,p=p,ourdecoder=ourdecoder)
