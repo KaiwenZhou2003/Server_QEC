@@ -85,12 +85,13 @@ my_osd_method = "osd_cs"
 my_osd_order = 7
 my_ms_scaling_factor = 0
 
-print(f"channel probs X = {channel_probsX}")
-print(f"my max iter = {my_max_iter}")
-print(f"my bp method = {my_bp_method}")
-print(f"my ms scaling factor = {my_ms_scaling_factor}")
-print(f"my osd method = {my_osd_method}")
-print(f"my osd order = {my_osd_order}")
+# print(f"channel probs X = {channel_probsX}")
+# print(f"my max iter = {my_max_iter}")
+# print(f"my bp method = {my_bp_method}")
+# print(f"my ms scaling factor = {my_ms_scaling_factor}")
+# print(f"my osd method = {my_osd_method}")
+# print(f"my osd order = {my_osd_order}")
+# print(f"Hx = {HX}")
 
 
 # code length
