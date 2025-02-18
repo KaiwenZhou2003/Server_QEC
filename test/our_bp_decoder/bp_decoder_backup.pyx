@@ -341,7 +341,6 @@ cdef class bp_decoder:
     cdef int bp_decode_log_prob_ratios(self):
         """
         Cython function implementing belief propagation for log probability ratios.
-        After execution, the decode result is stored in 'self.bp_decoding'.
 
         Notes
         -----
@@ -349,13 +348,11 @@ cdef class bp_decoder:
         """
 
         cdef mod2entry *e
-        cdef int i, j, check, equal, iteration, sgn
+        cdef int i, j, check,equal, iteration, sgn
         cdef double bit_to_check0, temp, alpha
 
-        cdef int idx
-        cdef int T = 20
-
         # initialisation
+
         for j in range(self.n):
             e=mod2sparse_first_in_col(self.H,j)
             while not mod2sparse_at_end(e):
@@ -363,91 +360,102 @@ cdef class bp_decoder:
                 e=mod2sparse_next_in_col(e)
 
         self.converge=0
+        for iteration in range(1,self.max_iter+1):
 
-        for _ in range(self.n - self.m):
+            self.iter=iteration
 
-            # run BP T iterations
-            for iteration in range(1, T + 1):
+            # product-sum check to bit messages
+            if self.bp_method==2:
 
-                self.iter=iteration
-                # min-sum check to bit messages
-                if self.bp_method==3:
+                for i in range(self.m):
 
-                    if self.ms_scaling_factor == 0:
-                        alpha = 1.0 - 2**(-1*iteration/1.0)
-                    else:
-                        alpha = self.ms_scaling_factor
+                    e=mod2sparse_first_in_row(self.H,i)
+                    temp=1.0
+                    while not mod2sparse_at_end(e):
+                        e.check_to_bit=temp
+                        temp*=tanh(e.bit_to_check/2)
+                        e=mod2sparse_next_in_row(e)
 
-                    # 遍历所有的校验节点
-                    for i in range(self.m):
-                        # 获取当前行的xxx
-                        e=mod2sparse_first_in_row(self.H,i)
-                        temp=1e308
-                        # synd表示syndrome
-                        if self.synd[i]==1: sgn=1
-                        else: sgn=0
-                        # 遍历当前校验节点(Ci)连接的变量节点(Vi)
-                        while not mod2sparse_at_end(e):
+                    e=mod2sparse_last_in_row(self.H,i)
+                    temp=1.0
+                    while not mod2sparse_at_end(e):
+                        e.check_to_bit*=temp
+                        e.check_to_bit=((-1)**self.synd[i])*log((1+e.check_to_bit)/(1-e.check_to_bit))
+                        temp*=tanh(e.bit_to_check/2)
+                        e=mod2sparse_prev_in_row(e)
+
+            # min-sum check to bit messages
+            if self.bp_method==3:
+
+                if self.ms_scaling_factor==0:
+                    alpha = 1.0 - 2**(-1*iteration/1.0)
+                else: alpha = self.ms_scaling_factor
+
+                for i in range(self.m):
+
+                    e=mod2sparse_first_in_row(self.H,i)
+                    temp=1e308
+
+                    if self.synd[i]==1: sgn=1
+                    else: sgn=0
+
+                    while not mod2sparse_at_end(e):
+                        e.check_to_bit=temp
+                        e.sgn=sgn
+                        if abs(e.bit_to_check)<temp:
+                            temp=abs(e.bit_to_check)
+                        if e.bit_to_check <=0: sgn+=1
+                        e=mod2sparse_next_in_row(e)
+
+                    e=mod2sparse_last_in_row(self.H,i)
+                    temp=1e308
+                    sgn=0
+                    while not mod2sparse_at_end(e):
+                        if temp < e.check_to_bit:
                             e.check_to_bit=temp
-                            e.sgn=sgn
-                            if abs(e.bit_to_check)<temp:
-                                temp=abs(e.bit_to_check)
-                            if e.bit_to_check <=0: sgn+=1
-                            e=mod2sparse_next_in_row(e)
+                        e.sgn+=sgn
 
-                        e=mod2sparse_last_in_row(self.H,i)
-                        temp=1e308
-                        sgn=0
-                        while not mod2sparse_at_end(e):
-                            if temp < e.check_to_bit:
-                                e.check_to_bit = temp
-                            e.sgn += sgn
-                            e.check_to_bit *= ((-1) ** e.sgn) * alpha
-                            if abs(e.bit_to_check) < temp:
-                                temp = abs(e.bit_to_check)
-                            if e.bit_to_check <= 0:
-                                sgn += 1
-                            e = mod2sparse_prev_in_row(e)
+                        e.check_to_bit*=((-1)**e.sgn)*alpha
 
-                # bit-to-check messages
-                for j in range(self.n):
-                    e=mod2sparse_first_in_col(self.H,j)
-                    temp=log((1-self.channel_probs[j])/self.channel_probs[j])
-                    while not mod2sparse_at_end(e):
-                        e.bit_to_check=temp
-                        temp+=e.check_to_bit
-                        # if isnan(temp): temp=0.0
-                        e=mod2sparse_next_in_col(e)
-                    # 硬判决，得到bp decode result
-                    self.log_prob_ratios[j]=temp
-                    if temp <= 0:
-                        self.bp_decoding[j]=1
-                    else:
-                        self.bp_decoding[j]=0
-                    e=mod2sparse_last_in_col(self.H,j)
-                    temp=0.0
-                    while not mod2sparse_at_end(e):
-                        e.bit_to_check+=temp
-                        temp+=e.check_to_bit
-                        # if isnan(temp): temp=0.0
-                        e=mod2sparse_prev_in_col(e)
+                        if abs(e.bit_to_check)<temp:
+                            temp=abs(e.bit_to_check)
+                        if e.bit_to_check <=0: sgn+=1
 
 
-            # 判断求出的e是否满足方程He=s。如果满足，则退出循环
-            mod2sparse_mulvec(self.H, self.bp_decoding, self.bp_decoding_synd) # spMV, He->s
+                        e=mod2sparse_prev_in_row(e)
+
+            # bit-to-check messages
+            for j in range(self.n):
+
+                e=mod2sparse_first_in_col(self.H,j)
+                temp=log((1-self.channel_probs[j])/self.channel_probs[j])
+
+                while not mod2sparse_at_end(e):
+                    e.bit_to_check=temp
+                    temp+=e.check_to_bit
+                    # if isnan(temp): temp=0.0
+                    e=mod2sparse_next_in_col(e)
+
+                self.log_prob_ratios[j]=temp
+                if temp <= 0: self.bp_decoding[j]=1
+                else: self.bp_decoding[j]=0
+
+                e=mod2sparse_last_in_col(self.H,j)
+                temp=0.0
+                while not mod2sparse_at_end(e):
+                    e.bit_to_check+=temp
+                    temp+=e.check_to_bit
+                    # if isnan(temp): temp=0.0
+                    e=mod2sparse_prev_in_col(e)
+
+
+            mod2sparse_mulvec(self.H,self.bp_decoding,self.bp_decoding_synd)
+
             equal=1
             for check in range(self.m):
-                # 不满足方程
-                if self.synd[check] != self.bp_decoding_synd[check]:
-                    equal = 0
-                    # 找到channel_probs中大于0.5且最接近0.5的元素
-                    closest_diff = 0.1 # 差值，可以调节
-                    for idx in range(self.n):
-                        if self.channel_probs[idx] > 0.5 and (self.channel_probs[idx] - 0.5) < closest_diff:
-                            self.channel_probs[idx] = 0.0001 # 给一个特别小的概率值，可以调节
-                            self.bp_decoding[idx] = 0
+                if self.synd[check]!=self.bp_decoding_synd[check]:
+                    equal=0
                     break
-            # 满足方程就退出BP
             if equal==1:
                 self.converge=1
                 return 1
