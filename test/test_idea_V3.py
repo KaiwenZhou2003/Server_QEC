@@ -5,106 +5,11 @@ import cvxpy as cp
 from z3 import And, If, Optimize, Xor, Bool, sat
 from functools import reduce
 
-SELECT_COL = False
-
-
-# 高斯消元法（mod 2）
-def gauss_elimination_mod2(A):
-    n = len(A)
-    m = len(A[0])
-    Augmented = A.copy()
-    col_trans = np.arange(m)
-    if SELECT_COL:
-        for i in range(n):
-            # 寻找主元
-            if Augmented[i, i] == 0:
-                # 如果主元为0，寻找下面一行有1的列交换
-                # print(i,i)
-                prior_jdx = 0
-                min_nonzero_counts = n
-                for j in range(i + 1, m):
-                    if Augmented[i, j] == 1:
-                        nonzero_counts = np.sum(Augmented[:, j])
-                        if nonzero_counts < min_nonzero_counts:
-                            prior_jdx = j
-                            min_nonzero_counts = nonzero_counts
-                j = prior_jdx
-                col_trans[i], col_trans[j] = col_trans[j], col_trans[i]
-                temp = Augmented[:, i].copy()
-                Augmented[:, i] = Augmented[:, j]
-                Augmented[:, j] = temp
-            elif Augmented[i, i] == 1:
-                # 如果主元为0，寻找下面一行有1的列交换
-                # print(i,i)
-                prior_jdx = i
-                min_nonzero_counts = np.sum(Augmented[:, i])
-                for j in range(i + 1, m):
-                    if Augmented[i, j] == 1:
-                        nonzero_counts = np.sum(Augmented[:, j])
-                        if nonzero_counts < min_nonzero_counts:
-                            prior_jdx = j
-                            min_nonzero_counts = nonzero_counts
-                j = prior_jdx
-                if i == j:
-                    continue
-                col_trans[i], col_trans[j] = col_trans[j], col_trans[i]
-                temp = Augmented[:, i].copy()
-                Augmented[:, i] = Augmented[:, j]
-                Augmented[:, j] = temp
-
-    syndrome_transpose = np.identity(n, dtype=int)
-    zero_row_counts = 0
-    for i in range(n):
-        # 对主元所在行进行消元
-        if Augmented[i, i] == 1:
-            for j in range(0, n):
-                if j != i and Augmented[j, i] == 1:
-                    Augmented[j] ^= Augmented[i]
-                    syndrome_transpose[j] ^= syndrome_transpose[i]
-        else:
-            # 如果主元为0，寻找下面一行有1的列交换
-            # print(i,i)
-            prior_jdx = i
-            min_nonzero_counts = n
-            for j in range(i + 1, m):
-                if Augmented[i, j] == 1:
-                    nonzero_counts = np.sum(Augmented[:, j])
-                    if nonzero_counts < min_nonzero_counts:
-                        prior_jdx = j
-                        min_nonzero_counts = nonzero_counts
-            if prior_jdx == i:
-                zero_row_counts += 1
-                ## this i-th row is all zero, put it in the last row
-                # temp = Augmented[:,i].copy()
-                # Augmented[:,i]  = Augmented[:,prior_jdx]
-                # Augmented[:,prior_jdx] = temp
-                continue
-            col_trans[i], col_trans[prior_jdx] = col_trans[prior_jdx], col_trans[i]
-            temp = Augmented[:, i].copy()
-            Augmented[:, i] = Augmented[:, prior_jdx]
-            Augmented[:, prior_jdx] = temp
-
-            ## 继续消元
-            for j in range(0, n):
-                if j != i and Augmented[j, i] == 1:
-                    Augmented[j] ^= Augmented[i]
-                    syndrome_transpose[j] ^= syndrome_transpose[i]
-    Augmented = Augmented[: n - zero_row_counts, :]
-    print("find zero rows", zero_row_counts)
-    # syndrome_transpose = syndrome_transpose[:n-zero_row_counts,:]
-    return Augmented, col_trans, syndrome_transpose
-
-
-def calculate_tran_syndrome(syndrome, syndrome_transpose):
-    return syndrome_transpose @ syndrome % 2
-
-
-def calculate_original_error(our_result, col_trans):
-    trans_results = np.zeros_like(our_result, dtype=int)
-    col_trans = col_trans.tolist()
-    for i in np.arange(len(col_trans)):
-        trans_results[i] = our_result[col_trans.index(i)]
-    return trans_results
+from utils.gauss_elimination import (
+    gauss_elimination_mod2,
+    calculate_tran_syndrome,
+    calculate_original_error,
+)
 
 
 ################################################################################################################
@@ -117,6 +22,14 @@ class min_sum_decoder:
     def __init__(self, hz, p):
         self.hz = hz
         self.p = p
+        self.bp_decoder = bp_decoder(
+            self.hz,
+            error_rate=p,
+            channel_probs=[None],
+            max_iter=len(self.hz[0]),
+            bp_method="ms",  # minimum sum
+            ms_scaling_factor=0,
+        )
 
     def count_conflicts(self, syndrome, cur_guess):
         hzg = (self.hz @ cur_guess) % 2
@@ -243,6 +156,10 @@ class min_sum_decoder:
         # print(f"greedy g HW = {np.sum(g)}, bp g HW = {np.sum(our_result)}")
         return our_result
 
+    def bp_decode(self, syndrome, **kwarg):
+        self.bp_decoder.decode(syndrome)
+        return self.bp_decoder.bp_decoding
+
 
 ################################################################################################################
 
@@ -263,8 +180,8 @@ class guass_decoder:
         self.syndrome_transpose = syndrome_transpose
         self.B = hz_trans[:, len(hz_trans) : len(hz_trans[0])]
         # print("density of B:",np.sum(self.B)/(len(self.B)*len(self.B[0])))
-        print("row density of B:", np.sum(self.B, axis=0))
-        print(f"{len(self.B)},{len(self.B[0])}")
+        print("row density of B:", np.sum(self.B, axis=1))
+        print(f"B shape = ({len(self.B)}, {len(self.B[0])})")
         weights = [
             np.log((1 - p) / p) for i in range(H_X.shape[1])
         ]  # 初始每个qubit的对数似然比
@@ -300,13 +217,13 @@ class guass_decoder:
                 np.zeros(len(self.hz_trans[0]) - len(self.hz_trans), dtype=int),
             ]
         )
-        g = self.ms_decoder.greedy_decode(g_syn, order=10)  # 传入g_syn = [s', 0]
+        g = self.ms_decoder.greedy_decode(g_syn, order=4)  # 传入g_syn = [s', 0]
         # g = self.ms_decoder.our_bp_decode(g_syn)
         f = (np.dot(self.B, g) + syndrome_copy) % 2
         our_result = np.hstack((f, g))
         assert ((self.hz_trans @ our_result) % 2 == syndrome_copy).all()
         trans_results = calculate_original_error(our_result, self.col_trans)
-        # assert ((self.hz @ trans_results) % 2 == syndrome).all(), trans_results
+        assert ((self.hz @ trans_results) % 2 == syndrome).all(), trans_results
         return trans_results
 
 
@@ -395,6 +312,9 @@ def test_decoder(num_trials, surface_code, p, ourdecoder):
                 # )
                 pass
         else:
+            # print(
+            #     f"our HW = {np.nonzero(our_predicates)[0]}, true error = {np.nonzero(error)[0]}"
+            # )
             if bposdflag == 0:
                 # print(
                 #     f"BP+OSD success, we failed: our HW = {np.sum(our_predicates)}, bposd HW = {np.sum(bposddecoder.osdw_decoding)}"
@@ -437,7 +357,7 @@ if __name__ == "__main__":
     """
     Bivariate Bicycle Codes
     """
-    N = 108
+    N = 288
     if N == 72:
         bb_code, A_list, B_list = create_bivariate_bicycle_codes(
             6, 6, [3], [1, 2], [1, 2], [3]
@@ -472,8 +392,8 @@ if __name__ == "__main__":
     """
     Hypergraph Codes
     """
-    rep_code = rep_code(3)
-    hm_code = hamming_code(2)
+    rep_code = rep_code(5)
+    hm_code = hamming_code(5)
     hg_code = hypergraph_product(rep_code, hm_code)
 
     # h = hamming_code(2)
@@ -486,9 +406,14 @@ if __name__ == "__main__":
     # code.test()
     # print("-" * 30)
 
-    p = 0.0001
-    print(f"hz shape = {bb_code.hz.shape}")
-    ourdecoder = guass_decoder(bb_code.hz, error_rate=p)
+    p = 0.05
+    code = bb_code
+    print(f"hz shape = {code.hz.shape}")
+    ourdecoder = guass_decoder(code.hz, error_rate=p)
     ourdecoder.pre_decode()
-    # print(ourdecoder.hz_trans)
-    test_decoder(num_trials=100000, surface_code=bb_code, p=p, ourdecoder=ourdecoder)
+    print(f"ourdecoder.hz_trans = {ourdecoder.hz_trans}")
+    with open("hz_trans.txt", "w") as file:
+        for row in ourdecoder.hz_trans:
+            file.write(" ".join(map(str, row)) + "\n")
+
+    test_decoder(num_trials=10000, surface_code=code, p=p, ourdecoder=ourdecoder)
