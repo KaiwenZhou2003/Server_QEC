@@ -353,7 +353,12 @@ cdef class bp_decoder:
         cdef double bit_to_check0, temp, alpha
 
         cdef int idx
-        cdef int T = 20
+        cdef double max_abs
+        cdef int T = 10
+        cdef int LARGE = 1000
+
+        # 初始化集合 V_u，表示未被处理的变量节点
+        cdef set V_u = set(range(self.n))
 
         # initialisation
         for j in range(self.n):
@@ -364,7 +369,7 @@ cdef class bp_decoder:
 
         self.converge=0
 
-        for _ in range(self.n - self.m):
+        for _ in range(self.n): # 一开始设的self.n - self.m，导致精度很低
 
             # run BP T iterations
             for iteration in range(1, T + 1):
@@ -432,6 +437,9 @@ cdef class bp_decoder:
                         # if isnan(temp): temp=0.0
                         e=mod2sparse_prev_in_col(e)
 
+            #for j in range(self.n):
+            #    print(self.log_prob_ratios[j], end=" ")
+            #print('\n')
 
             # 判断求出的e是否满足方程He=s。如果满足，则退出循环
             mod2sparse_mulvec(self.H, self.bp_decoding, self.bp_decoding_synd) # spMV, He->s
@@ -440,12 +448,31 @@ cdef class bp_decoder:
                 # 不满足方程
                 if self.synd[check] != self.bp_decoding_synd[check]:
                     equal = 0
-                    # 找到channel_probs中大于0.5且最接近0.5的元素
-                    closest_diff = 0.1 # 差值，可以调节
-                    for idx in range(self.n):
-                        if self.channel_probs[idx] > 0.5 and (self.channel_probs[idx] - 0.5) < closest_diff:
-                            self.channel_probs[idx] = 0.0001 # 给一个特别小的概率值，可以调节
-                            self.bp_decoding[idx] = 0
+                    ## 找到channel_probs中大于0.5且最接近0.5的元素
+                    #closest_diff = 0.01 # 差值，可以调节
+                    #for idx in range(self.n):
+                    #    if self.channel_probs[idx] > 0.5 and (self.channel_probs[idx] - 0.5) < closest_diff:
+                    #        print(123123123)
+                    #        # self.channel_probs[idx] = 0.0001 # 给一个特别小的概率值，可以调节
+                    #        self.channel_probs[idx] = 1 - self.channel_probs[idx] # 取反
+                    #        # self.bp_decoding[idx] = 0
+                    
+                    # BPGD
+                    max_abs = 0.0
+                    idx = -1
+                    for j in V_u:
+                        current_abs = abs(self.log_prob_ratios[j])  
+                        if current_abs > max_abs:
+                            max_abs = current_abs  
+                            idx = j        
+                    if(idx != -1):
+                        if(max_abs >= 0):
+                            self.log_prob_ratios[idx] = LARGE
+                        else:
+                            self.log_prob_ratios[idx] = -LARGE
+                        # 从V_u中删除idx
+                        V_u.remove(idx)    
+
                     break
             # 满足方程就退出BP
             if equal==1:

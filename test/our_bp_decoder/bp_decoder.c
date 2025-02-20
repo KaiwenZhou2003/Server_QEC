@@ -2378,6 +2378,23 @@ static PyObject* __Pyx_PyInt_AddObjC(PyObject *op1, PyObject *op2, long intval, 
     (inplace ? PyNumber_InPlaceAdd(op1, op2) : PyNumber_Add(op1, op2))
 #endif
 
+/* IterFinish.proto */
+static CYTHON_INLINE int __Pyx_IterFinish(void);
+
+/* set_iter.proto */
+static CYTHON_INLINE PyObject* __Pyx_set_iterator(PyObject* iterable, int is_set,
+                                                  Py_ssize_t* p_orig_length, int* p_source_is_set);
+static CYTHON_INLINE int __Pyx_set_iter_next(
+        PyObject* iter_obj, Py_ssize_t orig_length,
+        Py_ssize_t* ppos, PyObject **value,
+        int source_is_set);
+
+/* pyfrozenset_new.proto */
+static CYTHON_INLINE PyObject* __Pyx_PyFrozenSet_New(PyObject* it);
+
+/* py_set_remove.proto */
+static CYTHON_INLINE int __Pyx_PySet_Remove(PyObject *set, PyObject *key);
+
 /* SetItemInt.proto */
 #define __Pyx_SetItemInt(o, i, v, type, is_signed, to_py_func, is_list, wraparound, boundscheck)\
     (__Pyx_fits_Py_ssize_t(i, type, is_signed) ?\
@@ -8482,38 +8499,85 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
   double __pyx_v_temp;
   double __pyx_v_alpha;
   int __pyx_v_idx;
+  double __pyx_v_max_abs;
   int __pyx_v_T;
+  int __pyx_v_LARGE;
+  PyObject *__pyx_v_V_u = 0;
   CYTHON_UNUSED int __pyx_v__;
-  double __pyx_v_closest_diff;
+  double __pyx_v_current_abs;
   int __pyx_r;
-  int __pyx_t_1;
-  int __pyx_t_2;
+  __Pyx_RefNannyDeclarations
+  PyObject *__pyx_t_1 = NULL;
+  PyObject *__pyx_t_2 = NULL;
   int __pyx_t_3;
   int __pyx_t_4;
-  long __pyx_t_5;
-  long __pyx_t_6;
-  int __pyx_t_7;
-  double __pyx_t_8;
+  int __pyx_t_5;
+  int __pyx_t_6;
+  long __pyx_t_7;
+  long __pyx_t_8;
   int __pyx_t_9;
-  int __pyx_t_10;
+  double __pyx_t_10;
   int __pyx_t_11;
   int __pyx_t_12;
   int __pyx_t_13;
-  int __pyx_t_14;
+  Py_ssize_t __pyx_t_14;
+  Py_ssize_t __pyx_t_15;
+  int __pyx_t_16;
+  int __pyx_t_17;
+  int __pyx_lineno = 0;
+  const char *__pyx_filename = NULL;
+  int __pyx_clineno = 0;
+  __Pyx_RefNannySetupContext("bp_decode_log_prob_ratios", 1);
+
+  /* "our_bp_decoder/bp_decoder.pyx":357
+ *         cdef int idx
+ *         cdef double max_abs
+ *         cdef int T = 10             # <<<<<<<<<<<<<<
+ *         cdef int LARGE = 1000
+ * 
+ */
+  __pyx_v_T = 10;
 
   /* "our_bp_decoder/bp_decoder.pyx":358
+ *         cdef double max_abs
+ *         cdef int T = 10
+ *         cdef int LARGE = 1000             # <<<<<<<<<<<<<<
+ * 
+ *         #  V_u
+ */
+  __pyx_v_LARGE = 0x3E8;
+
+  /* "our_bp_decoder/bp_decoder.pyx":361
+ * 
+ *         #  V_u
+ *         cdef set V_u = set(range(self.n))             # <<<<<<<<<<<<<<
+ * 
+ *         # initialisation
+ */
+  __pyx_t_1 = __Pyx_PyInt_From_int(__pyx_v_self->n); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 361, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __pyx_t_2 = __Pyx_PyObject_CallOneArg(__pyx_builtin_range, __pyx_t_1); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 361, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_2);
+  __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+  __pyx_t_1 = PySet_New(__pyx_t_2); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 361, __pyx_L1_error)
+  __Pyx_GOTREF(__pyx_t_1);
+  __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+  __pyx_v_V_u = ((PyObject*)__pyx_t_1);
+  __pyx_t_1 = 0;
+
+  /* "our_bp_decoder/bp_decoder.pyx":364
  * 
  *         # initialisation
  *         for j in range(self.n):             # <<<<<<<<<<<<<<
  *             e=mod2sparse_first_in_col(self.H,j)
  *             while not mod2sparse_at_end(e):
  */
-  __pyx_t_1 = __pyx_v_self->n;
-  __pyx_t_2 = __pyx_t_1;
-  for (__pyx_t_3 = 0; __pyx_t_3 < __pyx_t_2; __pyx_t_3+=1) {
-    __pyx_v_j = __pyx_t_3;
+  __pyx_t_3 = __pyx_v_self->n;
+  __pyx_t_4 = __pyx_t_3;
+  for (__pyx_t_5 = 0; __pyx_t_5 < __pyx_t_4; __pyx_t_5+=1) {
+    __pyx_v_j = __pyx_t_5;
 
-    /* "our_bp_decoder/bp_decoder.pyx":359
+    /* "our_bp_decoder/bp_decoder.pyx":365
  *         # initialisation
  *         for j in range(self.n):
  *             e=mod2sparse_first_in_col(self.H,j)             # <<<<<<<<<<<<<<
@@ -8522,7 +8586,7 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  */
     __pyx_v_e = mod2sparse_first_in_col(__pyx_v_self->H, __pyx_v_j);
 
-    /* "our_bp_decoder/bp_decoder.pyx":360
+    /* "our_bp_decoder/bp_decoder.pyx":366
  *         for j in range(self.n):
  *             e=mod2sparse_first_in_col(self.H,j)
  *             while not mod2sparse_at_end(e):             # <<<<<<<<<<<<<<
@@ -8530,10 +8594,10 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  *                 e=mod2sparse_next_in_col(e)
  */
     while (1) {
-      __pyx_t_4 = (!(mod2sparse_at_end(__pyx_v_e) != 0));
-      if (!__pyx_t_4) break;
+      __pyx_t_6 = (!(mod2sparse_at_end(__pyx_v_e) != 0));
+      if (!__pyx_t_6) break;
 
-      /* "our_bp_decoder/bp_decoder.pyx":361
+      /* "our_bp_decoder/bp_decoder.pyx":367
  *             e=mod2sparse_first_in_col(self.H,j)
  *             while not mod2sparse_at_end(e):
  *                 e.bit_to_check=log((1-self.channel_probs[j])/self.channel_probs[j])             # <<<<<<<<<<<<<<
@@ -8542,7 +8606,7 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  */
       __pyx_v_e->bit_to_check = log(((1.0 - (__pyx_v_self->channel_probs[__pyx_v_j])) / (__pyx_v_self->channel_probs[__pyx_v_j])));
 
-      /* "our_bp_decoder/bp_decoder.pyx":362
+      /* "our_bp_decoder/bp_decoder.pyx":368
  *             while not mod2sparse_at_end(e):
  *                 e.bit_to_check=log((1-self.channel_probs[j])/self.channel_probs[j])
  *                 e=mod2sparse_next_in_col(e)             # <<<<<<<<<<<<<<
@@ -8553,49 +8617,40 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
     }
   }
 
-  /* "our_bp_decoder/bp_decoder.pyx":364
+  /* "our_bp_decoder/bp_decoder.pyx":370
  *                 e=mod2sparse_next_in_col(e)
  * 
  *         self.converge=0             # <<<<<<<<<<<<<<
  * 
- *         cdef int T = 20
+ *         for _ in range(self.n): # self.n - self.m
  */
   __pyx_v_self->converge = 0;
 
-  /* "our_bp_decoder/bp_decoder.pyx":366
+  /* "our_bp_decoder/bp_decoder.pyx":372
  *         self.converge=0
  * 
- *         cdef int T = 20             # <<<<<<<<<<<<<<
- *         for _ in range(self.n - self.m):
- * 
- */
-  __pyx_v_T = 20;
-
-  /* "our_bp_decoder/bp_decoder.pyx":367
- * 
- *         cdef int T = 20
- *         for _ in range(self.n - self.m):             # <<<<<<<<<<<<<<
+ *         for _ in range(self.n): # self.n - self.m             # <<<<<<<<<<<<<<
  * 
  *             # run BP T iterations
  */
-  __pyx_t_1 = (__pyx_v_self->n - __pyx_v_self->m);
-  __pyx_t_2 = __pyx_t_1;
-  for (__pyx_t_3 = 0; __pyx_t_3 < __pyx_t_2; __pyx_t_3+=1) {
-    __pyx_v__ = __pyx_t_3;
+  __pyx_t_3 = __pyx_v_self->n;
+  __pyx_t_4 = __pyx_t_3;
+  for (__pyx_t_5 = 0; __pyx_t_5 < __pyx_t_4; __pyx_t_5+=1) {
+    __pyx_v__ = __pyx_t_5;
 
-    /* "our_bp_decoder/bp_decoder.pyx":370
+    /* "our_bp_decoder/bp_decoder.pyx":375
  * 
  *             # run BP T iterations
  *             for iteration in range(1, T + 1):             # <<<<<<<<<<<<<<
  * 
  *                 self.iter=iteration
  */
-    __pyx_t_5 = (__pyx_v_T + 1);
-    __pyx_t_6 = __pyx_t_5;
-    for (__pyx_t_7 = 1; __pyx_t_7 < __pyx_t_6; __pyx_t_7+=1) {
-      __pyx_v_iteration = __pyx_t_7;
+    __pyx_t_7 = (__pyx_v_T + 1);
+    __pyx_t_8 = __pyx_t_7;
+    for (__pyx_t_9 = 1; __pyx_t_9 < __pyx_t_8; __pyx_t_9+=1) {
+      __pyx_v_iteration = __pyx_t_9;
 
-      /* "our_bp_decoder/bp_decoder.pyx":372
+      /* "our_bp_decoder/bp_decoder.pyx":377
  *             for iteration in range(1, T + 1):
  * 
  *                 self.iter=iteration             # <<<<<<<<<<<<<<
@@ -8604,27 +8659,27 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  */
       __pyx_v_self->iter = __pyx_v_iteration;
 
-      /* "our_bp_decoder/bp_decoder.pyx":374
+      /* "our_bp_decoder/bp_decoder.pyx":379
  *                 self.iter=iteration
  *                 # min-sum check to bit messages
  *                 if self.bp_method==3:             # <<<<<<<<<<<<<<
  * 
  *                     if self.ms_scaling_factor == 0:
  */
-      __pyx_t_4 = (__pyx_v_self->bp_method == 3);
-      if (__pyx_t_4) {
+      __pyx_t_6 = (__pyx_v_self->bp_method == 3);
+      if (__pyx_t_6) {
 
-        /* "our_bp_decoder/bp_decoder.pyx":376
+        /* "our_bp_decoder/bp_decoder.pyx":381
  *                 if self.bp_method==3:
  * 
  *                     if self.ms_scaling_factor == 0:             # <<<<<<<<<<<<<<
  *                         alpha = 1.0 - 2**(-1*iteration/1.0)
  *                     else:
  */
-        __pyx_t_4 = (__pyx_v_self->ms_scaling_factor == 0.0);
-        if (__pyx_t_4) {
+        __pyx_t_6 = (__pyx_v_self->ms_scaling_factor == 0.0);
+        if (__pyx_t_6) {
 
-          /* "our_bp_decoder/bp_decoder.pyx":377
+          /* "our_bp_decoder/bp_decoder.pyx":382
  * 
  *                     if self.ms_scaling_factor == 0:
  *                         alpha = 1.0 - 2**(-1*iteration/1.0)             # <<<<<<<<<<<<<<
@@ -8633,7 +8688,7 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  */
           __pyx_v_alpha = (1.0 - pow(2.0, (((double)(-1L * __pyx_v_iteration)) / 1.0)));
 
-          /* "our_bp_decoder/bp_decoder.pyx":376
+          /* "our_bp_decoder/bp_decoder.pyx":381
  *                 if self.bp_method==3:
  * 
  *                     if self.ms_scaling_factor == 0:             # <<<<<<<<<<<<<<
@@ -8643,7 +8698,7 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
           goto __pyx_L12;
         }
 
-        /* "our_bp_decoder/bp_decoder.pyx":379
+        /* "our_bp_decoder/bp_decoder.pyx":384
  *                         alpha = 1.0 - 2**(-1*iteration/1.0)
  *                     else:
  *                         alpha = self.ms_scaling_factor             # <<<<<<<<<<<<<<
@@ -8651,24 +8706,24 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  *                     #
  */
         /*else*/ {
-          __pyx_t_8 = __pyx_v_self->ms_scaling_factor;
-          __pyx_v_alpha = __pyx_t_8;
+          __pyx_t_10 = __pyx_v_self->ms_scaling_factor;
+          __pyx_v_alpha = __pyx_t_10;
         }
         __pyx_L12:;
 
-        /* "our_bp_decoder/bp_decoder.pyx":382
+        /* "our_bp_decoder/bp_decoder.pyx":387
  * 
  *                     #
  *                     for i in range(self.m):             # <<<<<<<<<<<<<<
  *                         # xxx
  *                         e=mod2sparse_first_in_row(self.H,i)
  */
-        __pyx_t_9 = __pyx_v_self->m;
-        __pyx_t_10 = __pyx_t_9;
-        for (__pyx_t_11 = 0; __pyx_t_11 < __pyx_t_10; __pyx_t_11+=1) {
-          __pyx_v_i = __pyx_t_11;
+        __pyx_t_11 = __pyx_v_self->m;
+        __pyx_t_12 = __pyx_t_11;
+        for (__pyx_t_13 = 0; __pyx_t_13 < __pyx_t_12; __pyx_t_13+=1) {
+          __pyx_v_i = __pyx_t_13;
 
-          /* "our_bp_decoder/bp_decoder.pyx":384
+          /* "our_bp_decoder/bp_decoder.pyx":389
  *                     for i in range(self.m):
  *                         # xxx
  *                         e=mod2sparse_first_in_row(self.H,i)             # <<<<<<<<<<<<<<
@@ -8677,7 +8732,7 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  */
           __pyx_v_e = mod2sparse_first_in_row(__pyx_v_self->H, __pyx_v_i);
 
-          /* "our_bp_decoder/bp_decoder.pyx":385
+          /* "our_bp_decoder/bp_decoder.pyx":390
  *                         # xxx
  *                         e=mod2sparse_first_in_row(self.H,i)
  *                         temp=1e308             # <<<<<<<<<<<<<<
@@ -8686,20 +8741,20 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  */
           __pyx_v_temp = 1e308;
 
-          /* "our_bp_decoder/bp_decoder.pyx":387
+          /* "our_bp_decoder/bp_decoder.pyx":392
  *                         temp=1e308
  *                         # syndsyndrome
  *                         if self.synd[i]==1: sgn=1             # <<<<<<<<<<<<<<
  *                         else: sgn=0
  *                         # (Ci)(Vi)
  */
-          __pyx_t_4 = ((__pyx_v_self->synd[__pyx_v_i]) == 1);
-          if (__pyx_t_4) {
+          __pyx_t_6 = ((__pyx_v_self->synd[__pyx_v_i]) == 1);
+          if (__pyx_t_6) {
             __pyx_v_sgn = 1;
             goto __pyx_L15;
           }
 
-          /* "our_bp_decoder/bp_decoder.pyx":388
+          /* "our_bp_decoder/bp_decoder.pyx":393
  *                         # syndsyndrome
  *                         if self.synd[i]==1: sgn=1
  *                         else: sgn=0             # <<<<<<<<<<<<<<
@@ -8711,7 +8766,7 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
           }
           __pyx_L15:;
 
-          /* "our_bp_decoder/bp_decoder.pyx":390
+          /* "our_bp_decoder/bp_decoder.pyx":395
  *                         else: sgn=0
  *                         # (Ci)(Vi)
  *                         while not mod2sparse_at_end(e):             # <<<<<<<<<<<<<<
@@ -8719,10 +8774,10 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  *                             e.sgn=sgn
  */
           while (1) {
-            __pyx_t_4 = (!(mod2sparse_at_end(__pyx_v_e) != 0));
-            if (!__pyx_t_4) break;
+            __pyx_t_6 = (!(mod2sparse_at_end(__pyx_v_e) != 0));
+            if (!__pyx_t_6) break;
 
-            /* "our_bp_decoder/bp_decoder.pyx":391
+            /* "our_bp_decoder/bp_decoder.pyx":396
  *                         # (Ci)(Vi)
  *                         while not mod2sparse_at_end(e):
  *                             e.check_to_bit=temp             # <<<<<<<<<<<<<<
@@ -8731,7 +8786,7 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  */
             __pyx_v_e->check_to_bit = __pyx_v_temp;
 
-            /* "our_bp_decoder/bp_decoder.pyx":392
+            /* "our_bp_decoder/bp_decoder.pyx":397
  *                         while not mod2sparse_at_end(e):
  *                             e.check_to_bit=temp
  *                             e.sgn=sgn             # <<<<<<<<<<<<<<
@@ -8740,17 +8795,17 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  */
             __pyx_v_e->sgn = __pyx_v_sgn;
 
-            /* "our_bp_decoder/bp_decoder.pyx":393
+            /* "our_bp_decoder/bp_decoder.pyx":398
  *                             e.check_to_bit=temp
  *                             e.sgn=sgn
  *                             if abs(e.bit_to_check)<temp:             # <<<<<<<<<<<<<<
  *                                 temp=abs(e.bit_to_check)
  *                             if e.bit_to_check <=0: sgn+=1
  */
-            __pyx_t_4 = (fabs(__pyx_v_e->bit_to_check) < __pyx_v_temp);
-            if (__pyx_t_4) {
+            __pyx_t_6 = (fabs(__pyx_v_e->bit_to_check) < __pyx_v_temp);
+            if (__pyx_t_6) {
 
-              /* "our_bp_decoder/bp_decoder.pyx":394
+              /* "our_bp_decoder/bp_decoder.pyx":399
  *                             e.sgn=sgn
  *                             if abs(e.bit_to_check)<temp:
  *                                 temp=abs(e.bit_to_check)             # <<<<<<<<<<<<<<
@@ -8759,7 +8814,7 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  */
               __pyx_v_temp = fabs(__pyx_v_e->bit_to_check);
 
-              /* "our_bp_decoder/bp_decoder.pyx":393
+              /* "our_bp_decoder/bp_decoder.pyx":398
  *                             e.check_to_bit=temp
  *                             e.sgn=sgn
  *                             if abs(e.bit_to_check)<temp:             # <<<<<<<<<<<<<<
@@ -8768,19 +8823,19 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  */
             }
 
-            /* "our_bp_decoder/bp_decoder.pyx":395
+            /* "our_bp_decoder/bp_decoder.pyx":400
  *                             if abs(e.bit_to_check)<temp:
  *                                 temp=abs(e.bit_to_check)
  *                             if e.bit_to_check <=0: sgn+=1             # <<<<<<<<<<<<<<
  *                             e=mod2sparse_next_in_row(e)
  * 
  */
-            __pyx_t_4 = (__pyx_v_e->bit_to_check <= 0.0);
-            if (__pyx_t_4) {
+            __pyx_t_6 = (__pyx_v_e->bit_to_check <= 0.0);
+            if (__pyx_t_6) {
               __pyx_v_sgn = (__pyx_v_sgn + 1);
             }
 
-            /* "our_bp_decoder/bp_decoder.pyx":396
+            /* "our_bp_decoder/bp_decoder.pyx":401
  *                                 temp=abs(e.bit_to_check)
  *                             if e.bit_to_check <=0: sgn+=1
  *                             e=mod2sparse_next_in_row(e)             # <<<<<<<<<<<<<<
@@ -8790,7 +8845,7 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
             __pyx_v_e = mod2sparse_next_in_row(__pyx_v_e);
           }
 
-          /* "our_bp_decoder/bp_decoder.pyx":398
+          /* "our_bp_decoder/bp_decoder.pyx":403
  *                             e=mod2sparse_next_in_row(e)
  * 
  *                         e=mod2sparse_last_in_row(self.H,i)             # <<<<<<<<<<<<<<
@@ -8799,7 +8854,7 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  */
           __pyx_v_e = mod2sparse_last_in_row(__pyx_v_self->H, __pyx_v_i);
 
-          /* "our_bp_decoder/bp_decoder.pyx":399
+          /* "our_bp_decoder/bp_decoder.pyx":404
  * 
  *                         e=mod2sparse_last_in_row(self.H,i)
  *                         temp=1e308             # <<<<<<<<<<<<<<
@@ -8808,7 +8863,7 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  */
           __pyx_v_temp = 1e308;
 
-          /* "our_bp_decoder/bp_decoder.pyx":400
+          /* "our_bp_decoder/bp_decoder.pyx":405
  *                         e=mod2sparse_last_in_row(self.H,i)
  *                         temp=1e308
  *                         sgn=0             # <<<<<<<<<<<<<<
@@ -8817,7 +8872,7 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  */
           __pyx_v_sgn = 0;
 
-          /* "our_bp_decoder/bp_decoder.pyx":401
+          /* "our_bp_decoder/bp_decoder.pyx":406
  *                         temp=1e308
  *                         sgn=0
  *                         while not mod2sparse_at_end(e):             # <<<<<<<<<<<<<<
@@ -8825,20 +8880,20 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  *                                 e.check_to_bit = temp
  */
           while (1) {
-            __pyx_t_4 = (!(mod2sparse_at_end(__pyx_v_e) != 0));
-            if (!__pyx_t_4) break;
+            __pyx_t_6 = (!(mod2sparse_at_end(__pyx_v_e) != 0));
+            if (!__pyx_t_6) break;
 
-            /* "our_bp_decoder/bp_decoder.pyx":402
+            /* "our_bp_decoder/bp_decoder.pyx":407
  *                         sgn=0
  *                         while not mod2sparse_at_end(e):
  *                             if temp < e.check_to_bit:             # <<<<<<<<<<<<<<
  *                                 e.check_to_bit = temp
  *                             e.sgn += sgn
  */
-            __pyx_t_4 = (__pyx_v_temp < __pyx_v_e->check_to_bit);
-            if (__pyx_t_4) {
+            __pyx_t_6 = (__pyx_v_temp < __pyx_v_e->check_to_bit);
+            if (__pyx_t_6) {
 
-              /* "our_bp_decoder/bp_decoder.pyx":403
+              /* "our_bp_decoder/bp_decoder.pyx":408
  *                         while not mod2sparse_at_end(e):
  *                             if temp < e.check_to_bit:
  *                                 e.check_to_bit = temp             # <<<<<<<<<<<<<<
@@ -8847,7 +8902,7 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  */
               __pyx_v_e->check_to_bit = __pyx_v_temp;
 
-              /* "our_bp_decoder/bp_decoder.pyx":402
+              /* "our_bp_decoder/bp_decoder.pyx":407
  *                         sgn=0
  *                         while not mod2sparse_at_end(e):
  *                             if temp < e.check_to_bit:             # <<<<<<<<<<<<<<
@@ -8856,7 +8911,7 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  */
             }
 
-            /* "our_bp_decoder/bp_decoder.pyx":404
+            /* "our_bp_decoder/bp_decoder.pyx":409
  *                             if temp < e.check_to_bit:
  *                                 e.check_to_bit = temp
  *                             e.sgn += sgn             # <<<<<<<<<<<<<<
@@ -8865,7 +8920,7 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  */
             __pyx_v_e->sgn = (__pyx_v_e->sgn + __pyx_v_sgn);
 
-            /* "our_bp_decoder/bp_decoder.pyx":405
+            /* "our_bp_decoder/bp_decoder.pyx":410
  *                                 e.check_to_bit = temp
  *                             e.sgn += sgn
  *                             e.check_to_bit *= ((-1) ** e.sgn) * alpha             # <<<<<<<<<<<<<<
@@ -8874,17 +8929,17 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  */
             __pyx_v_e->check_to_bit = (__pyx_v_e->check_to_bit * (pow(-1.0, ((double)__pyx_v_e->sgn)) * __pyx_v_alpha));
 
-            /* "our_bp_decoder/bp_decoder.pyx":406
+            /* "our_bp_decoder/bp_decoder.pyx":411
  *                             e.sgn += sgn
  *                             e.check_to_bit *= ((-1) ** e.sgn) * alpha
  *                             if abs(e.bit_to_check) < temp:             # <<<<<<<<<<<<<<
  *                                 temp = abs(e.bit_to_check)
  *                             if e.bit_to_check <= 0:
  */
-            __pyx_t_4 = (fabs(__pyx_v_e->bit_to_check) < __pyx_v_temp);
-            if (__pyx_t_4) {
+            __pyx_t_6 = (fabs(__pyx_v_e->bit_to_check) < __pyx_v_temp);
+            if (__pyx_t_6) {
 
-              /* "our_bp_decoder/bp_decoder.pyx":407
+              /* "our_bp_decoder/bp_decoder.pyx":412
  *                             e.check_to_bit *= ((-1) ** e.sgn) * alpha
  *                             if abs(e.bit_to_check) < temp:
  *                                 temp = abs(e.bit_to_check)             # <<<<<<<<<<<<<<
@@ -8893,7 +8948,7 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  */
               __pyx_v_temp = fabs(__pyx_v_e->bit_to_check);
 
-              /* "our_bp_decoder/bp_decoder.pyx":406
+              /* "our_bp_decoder/bp_decoder.pyx":411
  *                             e.sgn += sgn
  *                             e.check_to_bit *= ((-1) ** e.sgn) * alpha
  *                             if abs(e.bit_to_check) < temp:             # <<<<<<<<<<<<<<
@@ -8902,17 +8957,17 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  */
             }
 
-            /* "our_bp_decoder/bp_decoder.pyx":408
+            /* "our_bp_decoder/bp_decoder.pyx":413
  *                             if abs(e.bit_to_check) < temp:
  *                                 temp = abs(e.bit_to_check)
  *                             if e.bit_to_check <= 0:             # <<<<<<<<<<<<<<
  *                                 sgn += 1
  *                             e = mod2sparse_prev_in_row(e)
  */
-            __pyx_t_4 = (__pyx_v_e->bit_to_check <= 0.0);
-            if (__pyx_t_4) {
+            __pyx_t_6 = (__pyx_v_e->bit_to_check <= 0.0);
+            if (__pyx_t_6) {
 
-              /* "our_bp_decoder/bp_decoder.pyx":409
+              /* "our_bp_decoder/bp_decoder.pyx":414
  *                                 temp = abs(e.bit_to_check)
  *                             if e.bit_to_check <= 0:
  *                                 sgn += 1             # <<<<<<<<<<<<<<
@@ -8921,7 +8976,7 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  */
               __pyx_v_sgn = (__pyx_v_sgn + 1);
 
-              /* "our_bp_decoder/bp_decoder.pyx":408
+              /* "our_bp_decoder/bp_decoder.pyx":413
  *                             if abs(e.bit_to_check) < temp:
  *                                 temp = abs(e.bit_to_check)
  *                             if e.bit_to_check <= 0:             # <<<<<<<<<<<<<<
@@ -8930,7 +8985,7 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  */
             }
 
-            /* "our_bp_decoder/bp_decoder.pyx":410
+            /* "our_bp_decoder/bp_decoder.pyx":415
  *                             if e.bit_to_check <= 0:
  *                                 sgn += 1
  *                             e = mod2sparse_prev_in_row(e)             # <<<<<<<<<<<<<<
@@ -8941,7 +8996,7 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
           }
         }
 
-        /* "our_bp_decoder/bp_decoder.pyx":374
+        /* "our_bp_decoder/bp_decoder.pyx":379
  *                 self.iter=iteration
  *                 # min-sum check to bit messages
  *                 if self.bp_method==3:             # <<<<<<<<<<<<<<
@@ -8950,19 +9005,19 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  */
       }
 
-      /* "our_bp_decoder/bp_decoder.pyx":413
+      /* "our_bp_decoder/bp_decoder.pyx":418
  * 
  *                 # bit-to-check messages
  *                 for j in range(self.n):             # <<<<<<<<<<<<<<
  *                     e=mod2sparse_first_in_col(self.H,j)
  *                     temp=log((1-self.channel_probs[j])/self.channel_probs[j])
  */
-      __pyx_t_9 = __pyx_v_self->n;
-      __pyx_t_10 = __pyx_t_9;
-      for (__pyx_t_11 = 0; __pyx_t_11 < __pyx_t_10; __pyx_t_11+=1) {
-        __pyx_v_j = __pyx_t_11;
+      __pyx_t_11 = __pyx_v_self->n;
+      __pyx_t_12 = __pyx_t_11;
+      for (__pyx_t_13 = 0; __pyx_t_13 < __pyx_t_12; __pyx_t_13+=1) {
+        __pyx_v_j = __pyx_t_13;
 
-        /* "our_bp_decoder/bp_decoder.pyx":414
+        /* "our_bp_decoder/bp_decoder.pyx":419
  *                 # bit-to-check messages
  *                 for j in range(self.n):
  *                     e=mod2sparse_first_in_col(self.H,j)             # <<<<<<<<<<<<<<
@@ -8971,7 +9026,7 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  */
         __pyx_v_e = mod2sparse_first_in_col(__pyx_v_self->H, __pyx_v_j);
 
-        /* "our_bp_decoder/bp_decoder.pyx":415
+        /* "our_bp_decoder/bp_decoder.pyx":420
  *                 for j in range(self.n):
  *                     e=mod2sparse_first_in_col(self.H,j)
  *                     temp=log((1-self.channel_probs[j])/self.channel_probs[j])             # <<<<<<<<<<<<<<
@@ -8980,7 +9035,7 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  */
         __pyx_v_temp = log(((1.0 - (__pyx_v_self->channel_probs[__pyx_v_j])) / (__pyx_v_self->channel_probs[__pyx_v_j])));
 
-        /* "our_bp_decoder/bp_decoder.pyx":416
+        /* "our_bp_decoder/bp_decoder.pyx":421
  *                     e=mod2sparse_first_in_col(self.H,j)
  *                     temp=log((1-self.channel_probs[j])/self.channel_probs[j])
  *                     while not mod2sparse_at_end(e):             # <<<<<<<<<<<<<<
@@ -8988,10 +9043,10 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  *                         temp+=e.check_to_bit
  */
         while (1) {
-          __pyx_t_4 = (!(mod2sparse_at_end(__pyx_v_e) != 0));
-          if (!__pyx_t_4) break;
+          __pyx_t_6 = (!(mod2sparse_at_end(__pyx_v_e) != 0));
+          if (!__pyx_t_6) break;
 
-          /* "our_bp_decoder/bp_decoder.pyx":417
+          /* "our_bp_decoder/bp_decoder.pyx":422
  *                     temp=log((1-self.channel_probs[j])/self.channel_probs[j])
  *                     while not mod2sparse_at_end(e):
  *                         e.bit_to_check=temp             # <<<<<<<<<<<<<<
@@ -9000,7 +9055,7 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  */
           __pyx_v_e->bit_to_check = __pyx_v_temp;
 
-          /* "our_bp_decoder/bp_decoder.pyx":418
+          /* "our_bp_decoder/bp_decoder.pyx":423
  *                     while not mod2sparse_at_end(e):
  *                         e.bit_to_check=temp
  *                         temp+=e.check_to_bit             # <<<<<<<<<<<<<<
@@ -9009,7 +9064,7 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  */
           __pyx_v_temp = (__pyx_v_temp + __pyx_v_e->check_to_bit);
 
-          /* "our_bp_decoder/bp_decoder.pyx":420
+          /* "our_bp_decoder/bp_decoder.pyx":425
  *                         temp+=e.check_to_bit
  *                         # if isnan(temp): temp=0.0
  *                         e=mod2sparse_next_in_col(e)             # <<<<<<<<<<<<<<
@@ -9019,7 +9074,7 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
           __pyx_v_e = mod2sparse_next_in_col(__pyx_v_e);
         }
 
-        /* "our_bp_decoder/bp_decoder.pyx":422
+        /* "our_bp_decoder/bp_decoder.pyx":427
  *                         e=mod2sparse_next_in_col(e)
  *                     # bp decode result
  *                     self.log_prob_ratios[j]=temp             # <<<<<<<<<<<<<<
@@ -9028,17 +9083,17 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  */
         (__pyx_v_self->log_prob_ratios[__pyx_v_j]) = __pyx_v_temp;
 
-        /* "our_bp_decoder/bp_decoder.pyx":423
+        /* "our_bp_decoder/bp_decoder.pyx":428
  *                     # bp decode result
  *                     self.log_prob_ratios[j]=temp
  *                     if temp <= 0:             # <<<<<<<<<<<<<<
  *                         self.bp_decoding[j]=1
  *                     else:
  */
-        __pyx_t_4 = (__pyx_v_temp <= 0.0);
-        if (__pyx_t_4) {
+        __pyx_t_6 = (__pyx_v_temp <= 0.0);
+        if (__pyx_t_6) {
 
-          /* "our_bp_decoder/bp_decoder.pyx":424
+          /* "our_bp_decoder/bp_decoder.pyx":429
  *                     self.log_prob_ratios[j]=temp
  *                     if temp <= 0:
  *                         self.bp_decoding[j]=1             # <<<<<<<<<<<<<<
@@ -9047,7 +9102,7 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  */
           (__pyx_v_self->bp_decoding[__pyx_v_j]) = 1;
 
-          /* "our_bp_decoder/bp_decoder.pyx":423
+          /* "our_bp_decoder/bp_decoder.pyx":428
  *                     # bp decode result
  *                     self.log_prob_ratios[j]=temp
  *                     if temp <= 0:             # <<<<<<<<<<<<<<
@@ -9057,7 +9112,7 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
           goto __pyx_L29;
         }
 
-        /* "our_bp_decoder/bp_decoder.pyx":426
+        /* "our_bp_decoder/bp_decoder.pyx":431
  *                         self.bp_decoding[j]=1
  *                     else:
  *                         self.bp_decoding[j]=0             # <<<<<<<<<<<<<<
@@ -9069,7 +9124,7 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
         }
         __pyx_L29:;
 
-        /* "our_bp_decoder/bp_decoder.pyx":427
+        /* "our_bp_decoder/bp_decoder.pyx":432
  *                     else:
  *                         self.bp_decoding[j]=0
  *                     e=mod2sparse_last_in_col(self.H,j)             # <<<<<<<<<<<<<<
@@ -9078,7 +9133,7 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  */
         __pyx_v_e = mod2sparse_last_in_col(__pyx_v_self->H, __pyx_v_j);
 
-        /* "our_bp_decoder/bp_decoder.pyx":428
+        /* "our_bp_decoder/bp_decoder.pyx":433
  *                         self.bp_decoding[j]=0
  *                     e=mod2sparse_last_in_col(self.H,j)
  *                     temp=0.0             # <<<<<<<<<<<<<<
@@ -9087,7 +9142,7 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  */
         __pyx_v_temp = 0.0;
 
-        /* "our_bp_decoder/bp_decoder.pyx":429
+        /* "our_bp_decoder/bp_decoder.pyx":434
  *                     e=mod2sparse_last_in_col(self.H,j)
  *                     temp=0.0
  *                     while not mod2sparse_at_end(e):             # <<<<<<<<<<<<<<
@@ -9095,10 +9150,10 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  *                         temp+=e.check_to_bit
  */
         while (1) {
-          __pyx_t_4 = (!(mod2sparse_at_end(__pyx_v_e) != 0));
-          if (!__pyx_t_4) break;
+          __pyx_t_6 = (!(mod2sparse_at_end(__pyx_v_e) != 0));
+          if (!__pyx_t_6) break;
 
-          /* "our_bp_decoder/bp_decoder.pyx":430
+          /* "our_bp_decoder/bp_decoder.pyx":435
  *                     temp=0.0
  *                     while not mod2sparse_at_end(e):
  *                         e.bit_to_check+=temp             # <<<<<<<<<<<<<<
@@ -9107,7 +9162,7 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  */
           __pyx_v_e->bit_to_check = (__pyx_v_e->bit_to_check + __pyx_v_temp);
 
-          /* "our_bp_decoder/bp_decoder.pyx":431
+          /* "our_bp_decoder/bp_decoder.pyx":436
  *                     while not mod2sparse_at_end(e):
  *                         e.bit_to_check+=temp
  *                         temp+=e.check_to_bit             # <<<<<<<<<<<<<<
@@ -9116,19 +9171,19 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  */
           __pyx_v_temp = (__pyx_v_temp + __pyx_v_e->check_to_bit);
 
-          /* "our_bp_decoder/bp_decoder.pyx":433
+          /* "our_bp_decoder/bp_decoder.pyx":438
  *                         temp+=e.check_to_bit
  *                         # if isnan(temp): temp=0.0
  *                         e=mod2sparse_prev_in_col(e)             # <<<<<<<<<<<<<<
  * 
- * 
+ *             #for j in range(self.n):
  */
           __pyx_v_e = mod2sparse_prev_in_col(__pyx_v_e);
         }
       }
     }
 
-    /* "our_bp_decoder/bp_decoder.pyx":437
+    /* "our_bp_decoder/bp_decoder.pyx":445
  * 
  *             # eHe=s
  *             mod2sparse_mulvec(self.H, self.bp_decoding, self.bp_decoding_synd) # spMV, He->s             # <<<<<<<<<<<<<<
@@ -9137,7 +9192,7 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  */
     mod2sparse_mulvec(__pyx_v_self->H, __pyx_v_self->bp_decoding, __pyx_v_self->bp_decoding_synd);
 
-    /* "our_bp_decoder/bp_decoder.pyx":438
+    /* "our_bp_decoder/bp_decoder.pyx":446
  *             # eHe=s
  *             mod2sparse_mulvec(self.H, self.bp_decoding, self.bp_decoding_synd) # spMV, He->s
  *             equal=1             # <<<<<<<<<<<<<<
@@ -9146,135 +9201,228 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  */
     __pyx_v_equal = 1;
 
-    /* "our_bp_decoder/bp_decoder.pyx":439
+    /* "our_bp_decoder/bp_decoder.pyx":447
  *             mod2sparse_mulvec(self.H, self.bp_decoding, self.bp_decoding_synd) # spMV, He->s
  *             equal=1
  *             for check in range(self.m):             # <<<<<<<<<<<<<<
  *                 #
  *                 if self.synd[check] != self.bp_decoding_synd[check]:
  */
-    __pyx_t_7 = __pyx_v_self->m;
-    __pyx_t_9 = __pyx_t_7;
-    for (__pyx_t_10 = 0; __pyx_t_10 < __pyx_t_9; __pyx_t_10+=1) {
-      __pyx_v_check = __pyx_t_10;
+    __pyx_t_9 = __pyx_v_self->m;
+    __pyx_t_11 = __pyx_t_9;
+    for (__pyx_t_12 = 0; __pyx_t_12 < __pyx_t_11; __pyx_t_12+=1) {
+      __pyx_v_check = __pyx_t_12;
 
-      /* "our_bp_decoder/bp_decoder.pyx":441
+      /* "our_bp_decoder/bp_decoder.pyx":449
  *             for check in range(self.m):
  *                 #
  *                 if self.synd[check] != self.bp_decoding_synd[check]:             # <<<<<<<<<<<<<<
  *                     equal = 0
- *                     # channel_probs0.50.5
+ *                     ## channel_probs0.50.5
  */
-      __pyx_t_4 = ((__pyx_v_self->synd[__pyx_v_check]) != (__pyx_v_self->bp_decoding_synd[__pyx_v_check]));
-      if (__pyx_t_4) {
+      __pyx_t_6 = ((__pyx_v_self->synd[__pyx_v_check]) != (__pyx_v_self->bp_decoding_synd[__pyx_v_check]));
+      if (__pyx_t_6) {
 
-        /* "our_bp_decoder/bp_decoder.pyx":442
+        /* "our_bp_decoder/bp_decoder.pyx":450
  *                 #
  *                 if self.synd[check] != self.bp_decoding_synd[check]:
  *                     equal = 0             # <<<<<<<<<<<<<<
- *                     # channel_probs0.50.5
- *                     closest_diff = 0.1 #
+ *                     ## channel_probs0.50.5
+ *                     #closest_diff = 0.01 #
  */
         __pyx_v_equal = 0;
 
-        /* "our_bp_decoder/bp_decoder.pyx":444
- *                     equal = 0
- *                     # channel_probs0.50.5
- *                     closest_diff = 0.1 #             # <<<<<<<<<<<<<<
- *                     for idx in range(self.n):
- *                         if self.channel_probs[idx] > 0.5 and (self.channel_probs[idx] - 0.5) < closest_diff:
+        /* "our_bp_decoder/bp_decoder.pyx":461
+ * 
+ *                     # BPGD
+ *                     max_abs = 0.0             # <<<<<<<<<<<<<<
+ *                     idx = -1
+ *                     for j in V_u:
  */
-        __pyx_v_closest_diff = 0.1;
+        __pyx_v_max_abs = 0.0;
 
-        /* "our_bp_decoder/bp_decoder.pyx":445
- *                     # channel_probs0.50.5
- *                     closest_diff = 0.1 #
- *                     for idx in range(self.n):             # <<<<<<<<<<<<<<
- *                         if self.channel_probs[idx] > 0.5 and (self.channel_probs[idx] - 0.5) < closest_diff:
- *                             self.channel_probs[idx] = 0.0001 #
+        /* "our_bp_decoder/bp_decoder.pyx":462
+ *                     # BPGD
+ *                     max_abs = 0.0
+ *                     idx = -1             # <<<<<<<<<<<<<<
+ *                     for j in V_u:
+ *                         current_abs = abs(self.log_prob_ratios[j])
  */
-        __pyx_t_11 = __pyx_v_self->n;
-        __pyx_t_12 = __pyx_t_11;
-        for (__pyx_t_13 = 0; __pyx_t_13 < __pyx_t_12; __pyx_t_13+=1) {
-          __pyx_v_idx = __pyx_t_13;
+        __pyx_v_idx = -1;
 
-          /* "our_bp_decoder/bp_decoder.pyx":446
- *                     closest_diff = 0.1 #
- *                     for idx in range(self.n):
- *                         if self.channel_probs[idx] > 0.5 and (self.channel_probs[idx] - 0.5) < closest_diff:             # <<<<<<<<<<<<<<
- *                             self.channel_probs[idx] = 0.0001 #
- *                             self.bp_decoding[idx] = 0
+        /* "our_bp_decoder/bp_decoder.pyx":463
+ *                     max_abs = 0.0
+ *                     idx = -1
+ *                     for j in V_u:             # <<<<<<<<<<<<<<
+ *                         current_abs = abs(self.log_prob_ratios[j])
+ *                         if current_abs > max_abs:
  */
-          __pyx_t_14 = ((__pyx_v_self->channel_probs[__pyx_v_idx]) > 0.5);
-          if (__pyx_t_14) {
-          } else {
-            __pyx_t_4 = __pyx_t_14;
-            goto __pyx_L38_bool_binop_done;
-          }
-          __pyx_t_14 = (((__pyx_v_self->channel_probs[__pyx_v_idx]) - 0.5) < __pyx_v_closest_diff);
-          __pyx_t_4 = __pyx_t_14;
-          __pyx_L38_bool_binop_done:;
-          if (__pyx_t_4) {
+        __pyx_t_14 = 0;
+        __pyx_t_2 = __Pyx_set_iterator(__pyx_v_V_u, 1, (&__pyx_t_15), (&__pyx_t_13)); if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 463, __pyx_L1_error)
+        __Pyx_GOTREF(__pyx_t_2);
+        __Pyx_XDECREF(__pyx_t_1);
+        __pyx_t_1 = __pyx_t_2;
+        __pyx_t_2 = 0;
+        while (1) {
+          __pyx_t_16 = __Pyx_set_iter_next(__pyx_t_1, __pyx_t_15, &__pyx_t_14, &__pyx_t_2, __pyx_t_13);
+          if (unlikely(__pyx_t_16 == 0)) break;
+          if (unlikely(__pyx_t_16 == -1)) __PYX_ERR(0, 463, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_2);
+          __pyx_t_16 = __Pyx_PyInt_As_int(__pyx_t_2); if (unlikely((__pyx_t_16 == (int)-1) && PyErr_Occurred())) __PYX_ERR(0, 463, __pyx_L1_error)
+          __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
+          __pyx_v_j = __pyx_t_16;
 
-            /* "our_bp_decoder/bp_decoder.pyx":447
- *                     for idx in range(self.n):
- *                         if self.channel_probs[idx] > 0.5 and (self.channel_probs[idx] - 0.5) < closest_diff:
- *                             self.channel_probs[idx] = 0.0001 #             # <<<<<<<<<<<<<<
- *                             self.bp_decoding[idx] = 0
- *                     break
+          /* "our_bp_decoder/bp_decoder.pyx":464
+ *                     idx = -1
+ *                     for j in V_u:
+ *                         current_abs = abs(self.log_prob_ratios[j])             # <<<<<<<<<<<<<<
+ *                         if current_abs > max_abs:
+ *                             max_abs = current_abs
  */
-            (__pyx_v_self->channel_probs[__pyx_v_idx]) = 0.0001;
+          __pyx_v_current_abs = fabs((__pyx_v_self->log_prob_ratios[__pyx_v_j]));
 
-            /* "our_bp_decoder/bp_decoder.pyx":448
- *                         if self.channel_probs[idx] > 0.5 and (self.channel_probs[idx] - 0.5) < closest_diff:
- *                             self.channel_probs[idx] = 0.0001 #
- *                             self.bp_decoding[idx] = 0             # <<<<<<<<<<<<<<
- *                     break
- *             # BP
+          /* "our_bp_decoder/bp_decoder.pyx":465
+ *                     for j in V_u:
+ *                         current_abs = abs(self.log_prob_ratios[j])
+ *                         if current_abs > max_abs:             # <<<<<<<<<<<<<<
+ *                             max_abs = current_abs
+ *                             idx = j
  */
-            (__pyx_v_self->bp_decoding[__pyx_v_idx]) = 0;
+          __pyx_t_6 = (__pyx_v_current_abs > __pyx_v_max_abs);
+          if (__pyx_t_6) {
 
-            /* "our_bp_decoder/bp_decoder.pyx":446
- *                     closest_diff = 0.1 #
- *                     for idx in range(self.n):
- *                         if self.channel_probs[idx] > 0.5 and (self.channel_probs[idx] - 0.5) < closest_diff:             # <<<<<<<<<<<<<<
- *                             self.channel_probs[idx] = 0.0001 #
- *                             self.bp_decoding[idx] = 0
+            /* "our_bp_decoder/bp_decoder.pyx":466
+ *                         current_abs = abs(self.log_prob_ratios[j])
+ *                         if current_abs > max_abs:
+ *                             max_abs = current_abs             # <<<<<<<<<<<<<<
+ *                             idx = j
+ *                     if(idx != -1):
+ */
+            __pyx_v_max_abs = __pyx_v_current_abs;
+
+            /* "our_bp_decoder/bp_decoder.pyx":467
+ *                         if current_abs > max_abs:
+ *                             max_abs = current_abs
+ *                             idx = j             # <<<<<<<<<<<<<<
+ *                     if(idx != -1):
+ *                         if(max_abs >= 0):
+ */
+            __pyx_v_idx = __pyx_v_j;
+
+            /* "our_bp_decoder/bp_decoder.pyx":465
+ *                     for j in V_u:
+ *                         current_abs = abs(self.log_prob_ratios[j])
+ *                         if current_abs > max_abs:             # <<<<<<<<<<<<<<
+ *                             max_abs = current_abs
+ *                             idx = j
  */
           }
         }
+        __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
-        /* "our_bp_decoder/bp_decoder.pyx":449
- *                             self.channel_probs[idx] = 0.0001 #
- *                             self.bp_decoding[idx] = 0
+        /* "our_bp_decoder/bp_decoder.pyx":468
+ *                             max_abs = current_abs
+ *                             idx = j
+ *                     if(idx != -1):             # <<<<<<<<<<<<<<
+ *                         if(max_abs >= 0):
+ *                             self.log_prob_ratios[idx] = LARGE
+ */
+        __pyx_t_6 = (__pyx_v_idx != -1L);
+        if (__pyx_t_6) {
+
+          /* "our_bp_decoder/bp_decoder.pyx":469
+ *                             idx = j
+ *                     if(idx != -1):
+ *                         if(max_abs >= 0):             # <<<<<<<<<<<<<<
+ *                             self.log_prob_ratios[idx] = LARGE
+ *                         else:
+ */
+          __pyx_t_6 = (__pyx_v_max_abs >= 0.0);
+          if (__pyx_t_6) {
+
+            /* "our_bp_decoder/bp_decoder.pyx":470
+ *                     if(idx != -1):
+ *                         if(max_abs >= 0):
+ *                             self.log_prob_ratios[idx] = LARGE             # <<<<<<<<<<<<<<
+ *                         else:
+ *                             self.log_prob_ratios[idx] = -LARGE
+ */
+            (__pyx_v_self->log_prob_ratios[__pyx_v_idx]) = __pyx_v_LARGE;
+
+            /* "our_bp_decoder/bp_decoder.pyx":469
+ *                             idx = j
+ *                     if(idx != -1):
+ *                         if(max_abs >= 0):             # <<<<<<<<<<<<<<
+ *                             self.log_prob_ratios[idx] = LARGE
+ *                         else:
+ */
+            goto __pyx_L39;
+          }
+
+          /* "our_bp_decoder/bp_decoder.pyx":472
+ *                             self.log_prob_ratios[idx] = LARGE
+ *                         else:
+ *                             self.log_prob_ratios[idx] = -LARGE             # <<<<<<<<<<<<<<
+ *                         # V_uidx
+ *                         V_u.remove(idx)
+ */
+          /*else*/ {
+            (__pyx_v_self->log_prob_ratios[__pyx_v_idx]) = (-__pyx_v_LARGE);
+          }
+          __pyx_L39:;
+
+          /* "our_bp_decoder/bp_decoder.pyx":474
+ *                             self.log_prob_ratios[idx] = -LARGE
+ *                         # V_uidx
+ *                         V_u.remove(idx)             # <<<<<<<<<<<<<<
+ * 
+ *                     break
+ */
+          __pyx_t_1 = __Pyx_PyInt_From_int(__pyx_v_idx); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 474, __pyx_L1_error)
+          __Pyx_GOTREF(__pyx_t_1);
+          __pyx_t_17 = __Pyx_PySet_Remove(__pyx_v_V_u, __pyx_t_1); if (unlikely(__pyx_t_17 == ((int)-1))) __PYX_ERR(0, 474, __pyx_L1_error)
+          __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
+
+          /* "our_bp_decoder/bp_decoder.pyx":468
+ *                             max_abs = current_abs
+ *                             idx = j
+ *                     if(idx != -1):             # <<<<<<<<<<<<<<
+ *                         if(max_abs >= 0):
+ *                             self.log_prob_ratios[idx] = LARGE
+ */
+        }
+
+        /* "our_bp_decoder/bp_decoder.pyx":476
+ *                         V_u.remove(idx)
+ * 
  *                     break             # <<<<<<<<<<<<<<
  *             # BP
  *             if equal==1:
  */
         goto __pyx_L33_break;
 
-        /* "our_bp_decoder/bp_decoder.pyx":441
+        /* "our_bp_decoder/bp_decoder.pyx":449
  *             for check in range(self.m):
  *                 #
  *                 if self.synd[check] != self.bp_decoding_synd[check]:             # <<<<<<<<<<<<<<
  *                     equal = 0
- *                     # channel_probs0.50.5
+ *                     ## channel_probs0.50.5
  */
       }
     }
     __pyx_L33_break:;
 
-    /* "our_bp_decoder/bp_decoder.pyx":451
+    /* "our_bp_decoder/bp_decoder.pyx":478
  *                     break
  *             # BP
  *             if equal==1:             # <<<<<<<<<<<<<<
  *                 self.converge=1
  *                 return 1
  */
-    __pyx_t_4 = (__pyx_v_equal == 1);
-    if (__pyx_t_4) {
+    __pyx_t_6 = (__pyx_v_equal == 1);
+    if (__pyx_t_6) {
 
-      /* "our_bp_decoder/bp_decoder.pyx":452
+      /* "our_bp_decoder/bp_decoder.pyx":479
  *             # BP
  *             if equal==1:
  *                 self.converge=1             # <<<<<<<<<<<<<<
@@ -9283,7 +9431,7 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  */
       __pyx_v_self->converge = 1;
 
-      /* "our_bp_decoder/bp_decoder.pyx":453
+      /* "our_bp_decoder/bp_decoder.pyx":480
  *             if equal==1:
  *                 self.converge=1
  *                 return 1             # <<<<<<<<<<<<<<
@@ -9293,7 +9441,7 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
       __pyx_r = 1;
       goto __pyx_L0;
 
-      /* "our_bp_decoder/bp_decoder.pyx":451
+      /* "our_bp_decoder/bp_decoder.pyx":478
  *                     break
  *             # BP
  *             if equal==1:             # <<<<<<<<<<<<<<
@@ -9303,7 +9451,7 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
     }
   }
 
-  /* "our_bp_decoder/bp_decoder.pyx":455
+  /* "our_bp_decoder/bp_decoder.pyx":482
  *                 return 1
  * 
  *         return 0             # <<<<<<<<<<<<<<
@@ -9322,11 +9470,18 @@ static int __pyx_f_14our_bp_decoder_10bp_decoder_10bp_decoder_bp_decode_log_prob
  */
 
   /* function exit code */
+  __pyx_L1_error:;
+  __Pyx_XDECREF(__pyx_t_1);
+  __Pyx_XDECREF(__pyx_t_2);
+  __Pyx_AddTraceback("our_bp_decoder.bp_decoder.bp_decoder.bp_decode_log_prob_ratios", __pyx_clineno, __pyx_lineno, __pyx_filename);
+  __pyx_r = 0;
   __pyx_L0:;
+  __Pyx_XDECREF(__pyx_v_V_u);
+  __Pyx_RefNannyFinishContext();
   return __pyx_r;
 }
 
-/* "our_bp_decoder/bp_decoder.pyx":458
+/* "our_bp_decoder/bp_decoder.pyx":485
  * 
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -9368,19 +9523,19 @@ static PyObject *__pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_13channel_p
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "our_bp_decoder/bp_decoder.pyx":463
+  /* "our_bp_decoder/bp_decoder.pyx":490
  *         numpy.ndarray: The initial error channel probabilities
  *         """
  *         probs=np.zeros(self.n).astype("float")             # <<<<<<<<<<<<<<
  *         for j in range(self.n):
  *             probs[j]=self.channel_probs[j]
  */
-  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_np); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 463, __pyx_L1_error)
+  __Pyx_GetModuleGlobalName(__pyx_t_3, __pyx_n_s_np); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 490, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_zeros); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 463, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_3, __pyx_n_s_zeros); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 490, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-  __pyx_t_3 = __Pyx_PyInt_From_int(__pyx_v_self->n); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 463, __pyx_L1_error)
+  __pyx_t_3 = __Pyx_PyInt_From_int(__pyx_v_self->n); if (unlikely(!__pyx_t_3)) __PYX_ERR(0, 490, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_3);
   __pyx_t_5 = NULL;
   __pyx_t_6 = 0;
@@ -9401,11 +9556,11 @@ static PyObject *__pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_13channel_p
     __pyx_t_2 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_6, 1+__pyx_t_6);
     __Pyx_XDECREF(__pyx_t_5); __pyx_t_5 = 0;
     __Pyx_DECREF(__pyx_t_3); __pyx_t_3 = 0;
-    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 463, __pyx_L1_error)
+    if (unlikely(!__pyx_t_2)) __PYX_ERR(0, 490, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_2);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   }
-  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_astype); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 463, __pyx_L1_error)
+  __pyx_t_4 = __Pyx_PyObject_GetAttrStr(__pyx_t_2, __pyx_n_s_astype); if (unlikely(!__pyx_t_4)) __PYX_ERR(0, 490, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_4);
   __Pyx_DECREF(__pyx_t_2); __pyx_t_2 = 0;
   __pyx_t_2 = NULL;
@@ -9426,14 +9581,14 @@ static PyObject *__pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_13channel_p
     PyObject *__pyx_callargs[2] = {__pyx_t_2, __pyx_n_u_float};
     __pyx_t_1 = __Pyx_PyObject_FastCall(__pyx_t_4, __pyx_callargs+1-__pyx_t_6, 1+__pyx_t_6);
     __Pyx_XDECREF(__pyx_t_2); __pyx_t_2 = 0;
-    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 463, __pyx_L1_error)
+    if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 490, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
     __Pyx_DECREF(__pyx_t_4); __pyx_t_4 = 0;
   }
   __pyx_v_probs = __pyx_t_1;
   __pyx_t_1 = 0;
 
-  /* "our_bp_decoder/bp_decoder.pyx":464
+  /* "our_bp_decoder/bp_decoder.pyx":491
  *         """
  *         probs=np.zeros(self.n).astype("float")
  *         for j in range(self.n):             # <<<<<<<<<<<<<<
@@ -9445,20 +9600,20 @@ static PyObject *__pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_13channel_p
   for (__pyx_t_9 = 0; __pyx_t_9 < __pyx_t_8; __pyx_t_9+=1) {
     __pyx_v_j = __pyx_t_9;
 
-    /* "our_bp_decoder/bp_decoder.pyx":465
+    /* "our_bp_decoder/bp_decoder.pyx":492
  *         probs=np.zeros(self.n).astype("float")
  *         for j in range(self.n):
  *             probs[j]=self.channel_probs[j]             # <<<<<<<<<<<<<<
  * 
  *         return probs
  */
-    __pyx_t_1 = PyFloat_FromDouble((__pyx_v_self->channel_probs[__pyx_v_j])); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 465, __pyx_L1_error)
+    __pyx_t_1 = PyFloat_FromDouble((__pyx_v_self->channel_probs[__pyx_v_j])); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 492, __pyx_L1_error)
     __Pyx_GOTREF(__pyx_t_1);
-    if (unlikely((__Pyx_SetItemInt(__pyx_v_probs, __pyx_v_j, __pyx_t_1, int, 1, __Pyx_PyInt_From_int, 0, 0, 0) < 0))) __PYX_ERR(0, 465, __pyx_L1_error)
+    if (unlikely((__Pyx_SetItemInt(__pyx_v_probs, __pyx_v_j, __pyx_t_1, int, 1, __Pyx_PyInt_From_int, 0, 0, 0) < 0))) __PYX_ERR(0, 492, __pyx_L1_error)
     __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
   }
 
-  /* "our_bp_decoder/bp_decoder.pyx":467
+  /* "our_bp_decoder/bp_decoder.pyx":494
  *             probs[j]=self.channel_probs[j]
  * 
  *         return probs             # <<<<<<<<<<<<<<
@@ -9470,7 +9625,7 @@ static PyObject *__pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_13channel_p
   __pyx_r = __pyx_v_probs;
   goto __pyx_L0;
 
-  /* "our_bp_decoder/bp_decoder.pyx":458
+  /* "our_bp_decoder/bp_decoder.pyx":485
  * 
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -9494,7 +9649,7 @@ static PyObject *__pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_13channel_p
   return __pyx_r;
 }
 
-/* "our_bp_decoder/bp_decoder.pyx":484
+/* "our_bp_decoder/bp_decoder.pyx":511
  *     #     return probs
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -9522,7 +9677,7 @@ static PyObject *__pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_9bp_method_
   __Pyx_RefNannyDeclarations
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "our_bp_decoder/bp_decoder.pyx":493
+  /* "our_bp_decoder/bp_decoder.pyx":520
  *         str
  *         """
  *         if self.bp_method==0: return "product_sum"             # <<<<<<<<<<<<<<
@@ -9538,7 +9693,7 @@ static PyObject *__pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_9bp_method_
     break;
     case 1:
 
-    /* "our_bp_decoder/bp_decoder.pyx":494
+    /* "our_bp_decoder/bp_decoder.pyx":521
  *         """
  *         if self.bp_method==0: return "product_sum"
  *         elif self.bp_method==1: return "minimum_sum"             # <<<<<<<<<<<<<<
@@ -9552,7 +9707,7 @@ static PyObject *__pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_9bp_method_
     break;
     case 2:
 
-    /* "our_bp_decoder/bp_decoder.pyx":495
+    /* "our_bp_decoder/bp_decoder.pyx":522
  *         if self.bp_method==0: return "product_sum"
  *         elif self.bp_method==1: return "minimum_sum"
  *         elif self.bp_method==2: return "product_sum_log"             # <<<<<<<<<<<<<<
@@ -9566,7 +9721,7 @@ static PyObject *__pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_9bp_method_
     break;
     case 3:
 
-    /* "our_bp_decoder/bp_decoder.pyx":496
+    /* "our_bp_decoder/bp_decoder.pyx":523
  *         elif self.bp_method==1: return "minimum_sum"
  *         elif self.bp_method==2: return "product_sum_log"
  *         elif self.bp_method==3: return "minimum_sum_log"             # <<<<<<<<<<<<<<
@@ -9581,7 +9736,7 @@ static PyObject *__pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_9bp_method_
     default: break;
   }
 
-  /* "our_bp_decoder/bp_decoder.pyx":484
+  /* "our_bp_decoder/bp_decoder.pyx":511
  *     #     return probs
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -9597,7 +9752,7 @@ static PyObject *__pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_9bp_method_
   return __pyx_r;
 }
 
-/* "our_bp_decoder/bp_decoder.pyx":498
+/* "our_bp_decoder/bp_decoder.pyx":525
  *         elif self.bp_method==3: return "minimum_sum_log"
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -9629,7 +9784,7 @@ static PyObject *__pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_4iter___get
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "our_bp_decoder/bp_decoder.pyx":507
+  /* "our_bp_decoder/bp_decoder.pyx":534
  *         numpy.ndarray
  *         """
  *         return self.iter             # <<<<<<<<<<<<<<
@@ -9637,13 +9792,13 @@ static PyObject *__pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_4iter___get
  *     @property
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyInt_From_int(__pyx_v_self->iter); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 507, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyInt_From_int(__pyx_v_self->iter); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 534, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "our_bp_decoder/bp_decoder.pyx":498
+  /* "our_bp_decoder/bp_decoder.pyx":525
  *         elif self.bp_method==3: return "minimum_sum_log"
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -9662,7 +9817,7 @@ static PyObject *__pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_4iter___get
   return __pyx_r;
 }
 
-/* "our_bp_decoder/bp_decoder.pyx":509
+/* "our_bp_decoder/bp_decoder.pyx":536
  *         return self.iter
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -9694,7 +9849,7 @@ static PyObject *__pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_17ms_scalin
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "our_bp_decoder/bp_decoder.pyx":518
+  /* "our_bp_decoder/bp_decoder.pyx":545
  *         float64
  *         """
  *         return self.ms_scaling_factor             # <<<<<<<<<<<<<<
@@ -9702,13 +9857,13 @@ static PyObject *__pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_17ms_scalin
  *     @property
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = PyFloat_FromDouble(__pyx_v_self->ms_scaling_factor); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 518, __pyx_L1_error)
+  __pyx_t_1 = PyFloat_FromDouble(__pyx_v_self->ms_scaling_factor); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 545, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "our_bp_decoder/bp_decoder.pyx":509
+  /* "our_bp_decoder/bp_decoder.pyx":536
  *         return self.iter
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -9727,7 +9882,7 @@ static PyObject *__pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_17ms_scalin
   return __pyx_r;
 }
 
-/* "our_bp_decoder/bp_decoder.pyx":520
+/* "our_bp_decoder/bp_decoder.pyx":547
  *         return self.ms_scaling_factor
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -9759,7 +9914,7 @@ static PyObject *__pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_8max_iter__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "our_bp_decoder/bp_decoder.pyx":529
+  /* "our_bp_decoder/bp_decoder.pyx":556
  *         int
  *         """
  *         return self.max_iter             # <<<<<<<<<<<<<<
@@ -9767,13 +9922,13 @@ static PyObject *__pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_8max_iter__
  *     @property
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyInt_From_int(__pyx_v_self->max_iter); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 529, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyInt_From_int(__pyx_v_self->max_iter); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 556, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "our_bp_decoder/bp_decoder.pyx":520
+  /* "our_bp_decoder/bp_decoder.pyx":547
  *         return self.ms_scaling_factor
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -9792,7 +9947,7 @@ static PyObject *__pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_8max_iter__
   return __pyx_r;
 }
 
-/* "our_bp_decoder/bp_decoder.pyx":531
+/* "our_bp_decoder/bp_decoder.pyx":558
  *         return self.max_iter
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -9824,7 +9979,7 @@ static PyObject *__pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_8converge__
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "our_bp_decoder/bp_decoder.pyx":540
+  /* "our_bp_decoder/bp_decoder.pyx":567
  *         int
  *         """
  *         return self.converge             # <<<<<<<<<<<<<<
@@ -9832,13 +9987,13 @@ static PyObject *__pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_8converge__
  *     @property
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = __Pyx_PyInt_From_int(__pyx_v_self->converge); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 540, __pyx_L1_error)
+  __pyx_t_1 = __Pyx_PyInt_From_int(__pyx_v_self->converge); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 567, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "our_bp_decoder/bp_decoder.pyx":531
+  /* "our_bp_decoder/bp_decoder.pyx":558
  *         return self.max_iter
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -9857,7 +10012,7 @@ static PyObject *__pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_8converge__
   return __pyx_r;
 }
 
-/* "our_bp_decoder/bp_decoder.pyx":542
+/* "our_bp_decoder/bp_decoder.pyx":569
  *         return self.converge
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -9889,7 +10044,7 @@ static PyObject *__pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_11bp_decodi
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "our_bp_decoder/bp_decoder.pyx":551
+  /* "our_bp_decoder/bp_decoder.pyx":578
  *         numpy.ndarray
  *         """
  *         return char2numpy(self.bp_decoding,self.n)             # <<<<<<<<<<<<<<
@@ -9897,13 +10052,13 @@ static PyObject *__pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_11bp_decodi
  *     @property
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = ((PyObject *)__pyx_f_14our_bp_decoder_6c_util_char2numpy(__pyx_v_self->bp_decoding, __pyx_v_self->n)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 551, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)__pyx_f_14our_bp_decoder_6c_util_char2numpy(__pyx_v_self->bp_decoding, __pyx_v_self->n)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 578, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "our_bp_decoder/bp_decoder.pyx":542
+  /* "our_bp_decoder/bp_decoder.pyx":569
  *         return self.converge
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -9922,7 +10077,7 @@ static PyObject *__pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_11bp_decodi
   return __pyx_r;
 }
 
-/* "our_bp_decoder/bp_decoder.pyx":553
+/* "our_bp_decoder/bp_decoder.pyx":580
  *         return char2numpy(self.bp_decoding,self.n)
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -9954,7 +10109,7 @@ static PyObject *__pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_15log_prob_
   int __pyx_clineno = 0;
   __Pyx_RefNannySetupContext("__get__", 1);
 
-  /* "our_bp_decoder/bp_decoder.pyx":563
+  /* "our_bp_decoder/bp_decoder.pyx":590
  *         numpy.ndarray
  *         """
  *         return double2numpy(self.log_prob_ratios,self.n)             # <<<<<<<<<<<<<<
@@ -9962,13 +10117,13 @@ static PyObject *__pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_15log_prob_
  *     # @property
  */
   __Pyx_XDECREF(__pyx_r);
-  __pyx_t_1 = ((PyObject *)__pyx_f_14our_bp_decoder_6c_util_double2numpy(__pyx_v_self->log_prob_ratios, __pyx_v_self->n)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 563, __pyx_L1_error)
+  __pyx_t_1 = ((PyObject *)__pyx_f_14our_bp_decoder_6c_util_double2numpy(__pyx_v_self->log_prob_ratios, __pyx_v_self->n)); if (unlikely(!__pyx_t_1)) __PYX_ERR(0, 590, __pyx_L1_error)
   __Pyx_GOTREF(__pyx_t_1);
   __pyx_r = __pyx_t_1;
   __pyx_t_1 = 0;
   goto __pyx_L0;
 
-  /* "our_bp_decoder/bp_decoder.pyx":553
+  /* "our_bp_decoder/bp_decoder.pyx":580
  *         return char2numpy(self.bp_decoding,self.n)
  * 
  *     @property             # <<<<<<<<<<<<<<
@@ -9987,7 +10142,7 @@ static PyObject *__pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_15log_prob_
   return __pyx_r;
 }
 
-/* "our_bp_decoder/bp_decoder.pyx":576
+/* "our_bp_decoder/bp_decoder.pyx":603
  *     #     return double2numpy(self.channel_probs,self.n)
  * 
  *     def __dealloc__(self):             # <<<<<<<<<<<<<<
@@ -10011,7 +10166,7 @@ static void __pyx_pw_14our_bp_decoder_10bp_decoder_10bp_decoder_7__dealloc__(PyO
 static void __pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_6__dealloc__(struct __pyx_obj_14our_bp_decoder_10bp_decoder_bp_decoder *__pyx_v_self) {
   int __pyx_t_1;
 
-  /* "our_bp_decoder/bp_decoder.pyx":577
+  /* "our_bp_decoder/bp_decoder.pyx":604
  * 
  *     def __dealloc__(self):
  *             if self.MEM_ALLOCATED:             # <<<<<<<<<<<<<<
@@ -10021,7 +10176,7 @@ static void __pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_6__dealloc__(str
   __pyx_t_1 = (__pyx_v_self->MEM_ALLOCATED != 0);
   if (__pyx_t_1) {
 
-    /* "our_bp_decoder/bp_decoder.pyx":578
+    /* "our_bp_decoder/bp_decoder.pyx":605
  *     def __dealloc__(self):
  *             if self.MEM_ALLOCATED:
  *                 free(self.error)             # <<<<<<<<<<<<<<
@@ -10030,7 +10185,7 @@ static void __pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_6__dealloc__(str
  */
     free(__pyx_v_self->error);
 
-    /* "our_bp_decoder/bp_decoder.pyx":579
+    /* "our_bp_decoder/bp_decoder.pyx":606
  *             if self.MEM_ALLOCATED:
  *                 free(self.error)
  *                 free(self.synd)             # <<<<<<<<<<<<<<
@@ -10039,7 +10194,7 @@ static void __pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_6__dealloc__(str
  */
     free(__pyx_v_self->synd);
 
-    /* "our_bp_decoder/bp_decoder.pyx":580
+    /* "our_bp_decoder/bp_decoder.pyx":607
  *                 free(self.error)
  *                 free(self.synd)
  *                 free(self.bp_decoding_synd)             # <<<<<<<<<<<<<<
@@ -10048,7 +10203,7 @@ static void __pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_6__dealloc__(str
  */
     free(__pyx_v_self->bp_decoding_synd);
 
-    /* "our_bp_decoder/bp_decoder.pyx":581
+    /* "our_bp_decoder/bp_decoder.pyx":608
  *                 free(self.synd)
  *                 free(self.bp_decoding_synd)
  *                 free(self.channel_probs)             # <<<<<<<<<<<<<<
@@ -10057,7 +10212,7 @@ static void __pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_6__dealloc__(str
  */
     free(__pyx_v_self->channel_probs);
 
-    /* "our_bp_decoder/bp_decoder.pyx":582
+    /* "our_bp_decoder/bp_decoder.pyx":609
  *                 free(self.bp_decoding_synd)
  *                 free(self.channel_probs)
  *                 free(self.bp_decoding)             # <<<<<<<<<<<<<<
@@ -10066,7 +10221,7 @@ static void __pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_6__dealloc__(str
  */
     free(__pyx_v_self->bp_decoding);
 
-    /* "our_bp_decoder/bp_decoder.pyx":583
+    /* "our_bp_decoder/bp_decoder.pyx":610
  *                 free(self.channel_probs)
  *                 free(self.bp_decoding)
  *                 free(self.log_prob_ratios)             # <<<<<<<<<<<<<<
@@ -10075,7 +10230,7 @@ static void __pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_6__dealloc__(str
  */
     free(__pyx_v_self->log_prob_ratios);
 
-    /* "our_bp_decoder/bp_decoder.pyx":584
+    /* "our_bp_decoder/bp_decoder.pyx":611
  *                 free(self.bp_decoding)
  *                 free(self.log_prob_ratios)
  *                 free(self.received_codeword)             # <<<<<<<<<<<<<<
@@ -10084,7 +10239,7 @@ static void __pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_6__dealloc__(str
  */
     free(__pyx_v_self->received_codeword);
 
-    /* "our_bp_decoder/bp_decoder.pyx":585
+    /* "our_bp_decoder/bp_decoder.pyx":612
  *                 free(self.log_prob_ratios)
  *                 free(self.received_codeword)
  *                 mod2sparse_free(self.H)             # <<<<<<<<<<<<<<
@@ -10093,7 +10248,7 @@ static void __pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_6__dealloc__(str
  */
     mod2sparse_free(__pyx_v_self->H);
 
-    /* "our_bp_decoder/bp_decoder.pyx":577
+    /* "our_bp_decoder/bp_decoder.pyx":604
  * 
  *     def __dealloc__(self):
  *             if self.MEM_ALLOCATED:             # <<<<<<<<<<<<<<
@@ -10102,7 +10257,7 @@ static void __pyx_pf_14our_bp_decoder_10bp_decoder_10bp_decoder_6__dealloc__(str
  */
   }
 
-  /* "our_bp_decoder/bp_decoder.pyx":576
+  /* "our_bp_decoder/bp_decoder.pyx":603
  *     #     return double2numpy(self.channel_probs,self.n)
  * 
  *     def __dealloc__(self):             # <<<<<<<<<<<<<<
@@ -13503,6 +13658,143 @@ static PyObject* __Pyx_PyInt_AddObjC(PyObject *op1, PyObject *op2, long intval, 
     return (inplace ? PyNumber_InPlaceAdd : PyNumber_Add)(op1, op2);
 }
 #endif
+
+/* IterFinish */
+static CYTHON_INLINE int __Pyx_IterFinish(void) {
+    PyObject* exc_type;
+    __Pyx_PyThreadState_declare
+    __Pyx_PyThreadState_assign
+    exc_type = __Pyx_PyErr_CurrentExceptionType();
+    if (unlikely(exc_type)) {
+        if (unlikely(!__Pyx_PyErr_GivenExceptionMatches(exc_type, PyExc_StopIteration)))
+            return -1;
+        __Pyx_PyErr_Clear();
+        return 0;
+    }
+    return 0;
+}
+
+/* set_iter */
+static CYTHON_INLINE PyObject* __Pyx_set_iterator(PyObject* iterable, int is_set,
+                                                  Py_ssize_t* p_orig_length, int* p_source_is_set) {
+#if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX < 0x030d0000
+    is_set = is_set || likely(PySet_CheckExact(iterable) || PyFrozenSet_CheckExact(iterable));
+    *p_source_is_set = is_set;
+    if (likely(is_set)) {
+        *p_orig_length = PySet_Size(iterable);
+        Py_INCREF(iterable);
+        return iterable;
+    }
+#else
+    CYTHON_UNUSED_VAR(is_set);
+    *p_source_is_set = 0;
+#endif
+    *p_orig_length = 0;
+    return PyObject_GetIter(iterable);
+}
+static CYTHON_INLINE int __Pyx_set_iter_next(
+        PyObject* iter_obj, Py_ssize_t orig_length,
+        Py_ssize_t* ppos, PyObject **value,
+        int source_is_set) {
+    if (!CYTHON_COMPILING_IN_CPYTHON || PY_VERSION_HEX >= 0x030d0000 || unlikely(!source_is_set)) {
+        *value = PyIter_Next(iter_obj);
+        if (unlikely(!*value)) {
+            return __Pyx_IterFinish();
+        }
+        CYTHON_UNUSED_VAR(orig_length);
+        CYTHON_UNUSED_VAR(ppos);
+        return 1;
+    }
+#if CYTHON_COMPILING_IN_CPYTHON && PY_VERSION_HEX < 0x030d0000
+    if (unlikely(PySet_GET_SIZE(iter_obj) != orig_length)) {
+        PyErr_SetString(
+            PyExc_RuntimeError,
+            "set changed size during iteration");
+        return -1;
+    }
+    {
+        Py_hash_t hash;
+        int ret = _PySet_NextEntry(iter_obj, ppos, value, &hash);
+        assert (ret != -1);
+        if (likely(ret)) {
+            Py_INCREF(*value);
+            return 1;
+        }
+    }
+#endif
+    return 0;
+}
+
+/* pyfrozenset_new */
+static CYTHON_INLINE PyObject* __Pyx_PyFrozenSet_New(PyObject* it) {
+    if (it) {
+        PyObject* result;
+#if CYTHON_COMPILING_IN_PYPY
+        PyObject* args;
+        args = PyTuple_Pack(1, it);
+        if (unlikely(!args))
+            return NULL;
+        result = PyObject_Call((PyObject*)&PyFrozenSet_Type, args, NULL);
+        Py_DECREF(args);
+        return result;
+#else
+        if (PyFrozenSet_CheckExact(it)) {
+            Py_INCREF(it);
+            return it;
+        }
+        result = PyFrozenSet_New(it);
+        if (unlikely(!result))
+            return NULL;
+        if ((PY_VERSION_HEX >= 0x031000A1) || likely(PySet_GET_SIZE(result)))
+            return result;
+        Py_DECREF(result);
+#endif
+    }
+#if CYTHON_USE_TYPE_SLOTS
+    return PyFrozenSet_Type.tp_new(&PyFrozenSet_Type, __pyx_empty_tuple, NULL);
+#else
+    return PyObject_Call((PyObject*)&PyFrozenSet_Type, __pyx_empty_tuple, NULL);
+#endif
+}
+
+/* py_set_discard_unhashable */
+static int __Pyx_PySet_DiscardUnhashable(PyObject *set, PyObject *key) {
+    PyObject *tmpkey;
+    int rv;
+    if (likely(!PySet_Check(key) || !PyErr_ExceptionMatches(PyExc_TypeError)))
+        return -1;
+    PyErr_Clear();
+    tmpkey = __Pyx_PyFrozenSet_New(key);
+    if (tmpkey == NULL)
+        return -1;
+    rv = PySet_Discard(set, tmpkey);
+    Py_DECREF(tmpkey);
+    return rv;
+}
+
+/* py_set_remove */
+static int __Pyx_PySet_RemoveNotFound(PyObject *set, PyObject *key, int found) {
+    if (unlikely(found < 0)) {
+        found = __Pyx_PySet_DiscardUnhashable(set, key);
+    }
+    if (likely(found == 0)) {
+        PyObject *tup;
+        tup = PyTuple_Pack(1, key);
+        if (!tup)
+            return -1;
+        PyErr_SetObject(PyExc_KeyError, tup);
+        Py_DECREF(tup);
+        return -1;
+    }
+    return found;
+}
+static CYTHON_INLINE int __Pyx_PySet_Remove(PyObject *set, PyObject *key) {
+    int found = PySet_Discard(set, key);
+    if (unlikely(found != 1)) {
+        return __Pyx_PySet_RemoveNotFound(set, key, found);
+    }
+    return 0;
+}
 
 /* SetItemInt */
 static int __Pyx_SetItemInt_Generic(PyObject *o, PyObject *j, PyObject *v) {

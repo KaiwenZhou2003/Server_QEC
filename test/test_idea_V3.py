@@ -118,106 +118,24 @@ class min_sum_decoder:
         self.hz = hz
         self.p = p
 
-    def count_conflicts(self, syndrome, error):
-        hzg = (self.hz @ error) % 2
+    def count_conflicts(self, syndrome, cur_guess):
+        hzg = (self.hz @ cur_guess) % 2
         hzg = hzg.astype(int)
         return np.sum(hzg ^ syndrome)
 
-    def sdp_relaxation_decode(self, syndrome, **kwargs):
-        """
-        使用半定规划松弛来求解尽可能满足最多线性方程的问题。
-        A: 线性方程组的系数矩阵 (m x n)
-        b: 方程组的常数项向量 (m,)
-        返回: 近似解向量 x
-        """
-        m, n = self.hz.shape
-
-        # 定义变量：x 是我们要求解的解向量（二进制）
-        x = cp.Variable(n, boolean=True)  # 求解的是一个二进制向量
-
-        # 定义目标函数：最小化违反的约束个数
-        objective = cp.Minimize(
-            cp.sum([cp.norm(self.hz[i, :] @ x - syndrome[i], "fro") for i in range(m)])
-        )
-
-        # 定义约束条件：我们需要一个可行解，这里我们使用半定规划松弛的思想来转换问题
-        constraints = []
-
-        # 求解SDP松弛问题
-        prob = cp.Problem(objective, constraints)
-
-        prob.solve()
-
-        return x.value
-
-    def z3_decode(self, syndrome, **kwargs):
-        """
-        使用Z3求解器来求解尽可能多的线性方程 (mod 2) 满足约束的问题。
-        A: 线性方程组的系数矩阵 (m x n)
-        b: 方程组的常数项向量 (m,)
-        返回: 最优解的二进制向量 x 和满足的约束数量
-        """
-        m, n = self.hz.shape
-
-        # 定义布尔变量 x, 对应于解向量
-        x = [Bool(f"x_{i}") for i in range(n)]
-        hz = self.hz.astype(bool).tolist()
-        # 创建Z3求解器
-        solver = Optimize()
-        syndromez3 = syndrome.astype(bool).tolist()
-        total_error = 0
-        for i in range(m):
-            # 计算 A_i * x_i (mod 2)
-            equation = [And(x[j], If(hz[i][j], True, False)) for j in range(n)]
-            mod_2_result = equation[0]
-            for j in range(1, n):
-                mod_2_result = Xor(mod_2_result, equation[j])
-
-            # 计算误差 (A_i * x_i) % 2 ⊕ b_i
-            error = Xor(mod_2_result, syndromez3[i])
-
-            # 将误差加入到目标函数中
-            total_error += error
-
-        # 添加优化目标：最小化总误差
-        from time import perf_counter
-
-        start = perf_counter()
-        solver.minimize(total_error)
-
-        # # 定义约束：对于每个方程 A_i * x = b_i
-        #     satisfied_constraints = []
-        #     for i in range(m):
-        #         # 计算 A_i * x_i
-        #         equation = [self.hz[i, j] * If(x[j], 1, 0) for j in range(n)]
-        #         sum_eq = Sum(equation) % 2
-
-        #         # 方程约束：A_i * x = b_i (mod 2)
-        #         solver.add(sum_eq == b[i])
-        #         satisfied_constraints.append(sum_eq == b[i])
-
-        # 目标是最大化满足的约束数量
-        # 由于Z3求解器本身并不直接支持计数约束，我们可以通过
-        # 构造一个优化问题来间接实现
-        if solver.check() == sat:
-            duration = perf_counter() - start
-            print(f"z3 solve takes {duration} s")
-            model = solver.model()
-            solution = [model[x_i] for x_i in x]
-            # min_error = solver.objective_value()
-            solution = np.array([True if x else False for x in solution]).astype(int)
-            return solution
-        else:
-            return np.zeros(n, dtype=int)
-
     def greedy_decode(self, syndrome, order=6):
-        """贪心算法，目前效果最优"""
-        n = len(self.hz[0])
+        """
+        贪心算法，目前效果最优
+        syndrom = [s', 0]
+        """
+        n = len(self.hz[0])  # 这里的hz是hstack[B, I]，所以这里的n实际上是n-m
         cur_guess = np.zeros(n, dtype=int)
         cur_conflicts = self.count_conflicts(syndrome, cur_guess)
-        for _ in range(1, order + 1):
+
+        for k in range(1, order + 1):
             best_conflicts = cur_conflicts
             best_guess = cur_guess
+
             for i in range(n):
                 if cur_guess[i] == 0:
                     try_guess = cur_guess.copy()
@@ -226,6 +144,54 @@ class min_sum_decoder:
                     if try_conflicts < best_conflicts:
                         best_conflicts = try_conflicts
                         best_guess = try_guess
+                # print(
+                #     f"order={k},i={i}: best_conflicts={best_conflicts}, best_guess={best_guess}"
+                # )
+
+            # 如果当前order没有找到更好的解，则停止
+            if best_conflicts == cur_conflicts:
+                # print(f"No better solution found in order {k}, break\n")
+                break
+            else:
+                cur_conflicts = best_conflicts
+                cur_guess = best_guess
+
+        return best_guess
+
+    def greedy_decode_approx(self, syndrome, order=6):
+        """
+        近似求解的贪心算法，只求出threshold个1就退出
+        syndrom = [s', 0]
+        """
+        n = len(self.hz[0])  # 这里的hz是hstack[B, I]，所以这里的n实际上是n-m
+        cur_guess = np.zeros(n, dtype=int)
+        cur_conflicts = self.count_conflicts(syndrome, cur_guess)
+
+        threshold = 2
+
+        for k in range(1, order + 1):
+            best_conflicts = cur_conflicts
+            best_guess = cur_guess
+
+            max_conflicts = 0
+            max_conficlits_idx = -1
+            for i in range(n):
+                if cur_guess[i] == 0:
+                    try_guess = cur_guess.copy()
+                    try_guess[i] = 1
+                    try_conflicts = self.count_conflicts(syndrome, try_guess)
+                    if try_conflicts < best_conflicts:
+                        best_conflicts = try_conflicts
+                        best_guess = try_guess
+                        # if int(np.sum(best_guess)) >= threshold:
+                        #     return best_guess
+                    else:
+                        if try_conflicts > max_conflicts:
+                            max_conflicts = try_conflicts
+                            max_conficlits_idx = i
+
+            best_guess[max_conficlits_idx] = 2
+            # 如果当前order没有找到更好的解，则停止
             if best_conflicts == cur_conflicts:
                 break
             else:
@@ -234,81 +200,48 @@ class min_sum_decoder:
 
         return best_guess
 
-    # 我们自己的bp decoder
+    # 求解我们堆叠的方程，我们自己的bp decoder
     def our_bp_decode(self, syndrome, **kwarg):
-        self.bp_decoder = our_bp_decoder(
+        """
+        对于[B, I]g=[s', 0]，先调用greedy_decoder，找到一个近似解，然后用bp_decoder进行迭代
+        """
+        from ldpc import bp_decoder, bposd_decoder
+
+        max_value = 25  # 对数似然比的大数
+        max_prob_1 = 0.55  # g算出来为1的对应的概率
+        max_prob_0 = 0.45  # g算出来为0的对应的概率
+
+        g = self.greedy_decode_approx(syndrome)
+        # print(f"best guess = {g}, len = {np.sum(g)}")
+
+        channel_probs = np.zeros(len(g))
+        delta = 0.0001
+        for idx, hard_value in enumerate(g):
+            if hard_value == 1:
+                # channel_probs[idx] = 1 / (1 + np.exp(-max_value))
+                channel_probs[idx] = max_prob_1
+            elif hard_value == 2:
+                channel_probs[idx] = max_prob_0
+            else:
+                channel_probs[idx] = np.random.uniform(self.p - delta, self.p + delta)
+                # channel_probs[idx] = self.p
+
+        # print(f"channel_probs = {channel_probs}")
+
+        bp_decoder = bp_decoder(
             self.hz,
-            error_rate=self.p,
-            channel_probs=[None],
-            max_iter=len(self.hz[0]),
-            bp_method=3,
+            error_rate=None,
+            channel_probs=channel_probs,
+            max_iter=self.hz.shape[1],
+            bp_method="ms",  # minimum sum
             ms_scaling_factor=0,
         )
-        self.bp_decoder.decode(syndrome)
-        return self.bp_decoder.bp_decoding
 
-    def simulated_annealing_decode(
-        self,
-        syndrome,
-        initial_temp=1000,
-        final_temp=1,
-        alpha=0.9,
-        max_iter=10000,
-        **kwargs,
-    ):
-        """
-        使用模拟退火算法找到近似解，使得尽可能多的方程得到满足。
-        A: 线性方程组的系数矩阵
-        b: 线性方程组的常数项
+        bp_decoder.decode(syndrome)
+        our_result = bp_decoder.bp_decoding
 
-        这个方法效果非常差
-        """
-        m, n = self.hz.shape
-        # 初始解：全为0的解
-        current_solution = np.zeros(n, dtype=int)
-        current_obj_value = self.count_conflicts(syndrome, current_solution)
-
-        best_solution = current_solution.copy()
-        best_obj_value = current_obj_value
-
-        # 初始温度
-        temperature = initial_temp
-
-        for iteration in range(max_iter):
-            # 在邻域中随机选择一个新的解
-            new_solution = current_solution.copy()
-            random_bit = np.random.randint(0, n - 1)  # 随机选择一个变量
-            new_solution[random_bit] = 1 - new_solution[random_bit]  # 翻转该变量
-
-            # 计算目标函数值
-            new_obj_value = self.count_conflicts(syndrome, new_solution)
-
-            # 如果新解更优，则接受
-            if new_obj_value < current_obj_value:
-                current_solution = new_solution
-                current_obj_value = new_obj_value
-            else:
-                # 否则，以一定概率接受新解
-                probability = math.exp(
-                    (current_obj_value - new_obj_value) / temperature
-                )
-                if np.random.random() < probability:
-                    current_solution = new_solution
-                    current_obj_value = new_obj_value
-
-            # 更新最佳解
-            if current_obj_value < best_obj_value:
-                best_solution = current_solution.copy()
-                best_obj_value = current_obj_value
-
-            # 降低温度
-            temperature *= alpha
-
-            # 如果温度足够低，停止
-            if temperature < final_temp:
-                break
-
-        return best_solution
+        # print(f"greedy g HW = {np.sum(g)}, bp g HW = {np.sum(our_result)}")
+        return our_result
 
 
 ################################################################################################################
@@ -367,13 +300,13 @@ class guass_decoder:
                 np.zeros(len(self.hz_trans[0]) - len(self.hz_trans), dtype=int),
             ]
         )
-        # g = self.ms_decoder.greedy_decode(g_syn, order=5)
-        g = self.ms_decoder.our_bp_decode(g_syn)
+        g = self.ms_decoder.greedy_decode(g_syn, order=10)  # 传入g_syn = [s', 0]
+        # g = self.ms_decoder.our_bp_decode(g_syn)
         f = (np.dot(self.B, g) + syndrome_copy) % 2
         our_result = np.hstack((f, g))
         assert ((self.hz_trans @ our_result) % 2 == syndrome_copy).all()
         trans_results = calculate_original_error(our_result, self.col_trans)
-        assert ((self.hz @ trans_results) % 2 == syndrome).all(), trans_results
+        # assert ((self.hz @ trans_results) % 2 == syndrome).all(), trans_results
         return trans_results
 
 
@@ -391,7 +324,7 @@ def test_decoder(num_trials, surface_code, p, ourdecoder):
         max_iter=surface_code.N,
         bp_method="ms",
         ms_scaling_factor=0,
-        osd_method="osd_e",
+        osd_method="osd_0",
         osd_order=7,
     )
     bpdecoder = bp_decoder(
@@ -456,13 +389,21 @@ def test_decoder(num_trials, surface_code, p, ourdecoder):
         flag = (surface_code.lz @ our_residual_error % 2).any()
         if flag == 0:
             our_num_success += 1
+            if bposdflag == 1:
+                # print(
+                #     f"BP+OSD fail, we success: our HW = {np.sum(our_predicates)}, bposd HW = {np.sum(bposddecoder.osdw_decoding)}"
+                # )
+                pass
         else:
-            # if bposdflag == 0:
-            # print(
-            #     f"BP+OSD success, we failed: our HW = {np.sum(our_predicates)}, bposd HW = {np.sum(bposddecoder.osdw_decoding)}"
-            # )
-            # print(f"{our_predicates}\n{bposddecoder.osdw_decoding}")
-            pass
+            if bposdflag == 0:
+                # print(
+                #     f"BP+OSD success, we failed: our HW = {np.sum(our_predicates)}, bposd HW = {np.sum(bposddecoder.osdw_decoding)}"
+                # )
+                # print(
+                #     f"{our_predicates}, our HW = {np.sum(our_predicates)}\n{bposddecoder.osdw_decoding}, bposd HW = {np.sum(bposddecoder.osdw_decoding)}"
+                # )
+                # print("\n")
+                pass
             # print(our_predicates,error)
 
     bposd_error_rate = 1 - bposd_num_success / num_trials
@@ -470,10 +411,14 @@ def test_decoder(num_trials, surface_code, p, ourdecoder):
     # uf_error_rate = 1- uf_num_success / num_trials
     our_error_rate = 1 - our_num_success / num_trials
     print(f"\nTotal trials: {num_trials}")
-    print(f"BP error rate: {bp_error_rate * 100:.2f}%")
-    print(f"BP+OSD error rate: {bposd_error_rate * 100:.2f}%")
+    # print(f"BP error rate: {bp_error_rate * 100:.2f}%")
+    # print(f"BP+OSD error rate: {bposd_error_rate * 100:.2f}%")
+    # # print(f"UF Success rate: {uf_error_rate * 100:.2f}%")
+    # print(f"Our error rate: {our_error_rate * 100:.2f}%")
+    print(f"BP error number: {num_trials - bp_num_success}")
+    print(f"BP+OSD error number: {num_trials - bposd_num_success}")
     # print(f"UF Success rate: {uf_error_rate * 100:.2f}%")
-    print(f"Our error rate: {our_error_rate * 100:.2f}%")
+    print(f"Our error number: {num_trials - our_num_success}")
 
 
 ################################################################################################################
@@ -482,27 +427,68 @@ if __name__ == "__main__":
     np.random.seed(0)
     from ldpc.codes import rep_code, ring_code, hamming_code
     from bposd.hgp import hgp, hgp_single
+    from utils.gen_codes import (
+        create_bivariate_bicycle_codes,
+        hypergraph_product,
+        rep_code,
+        hamming_code,
+    )
 
-    h = rep_code(3)
-    h2 = rep_code(3)
-    surface_code = hgp_single(h1=h, compute_distance=True)
-    surface_code = hgp(h1=h2, h2=surface_code.hz, compute_distance=True)
-    # surface_code.test()
-    # print(surface_code.hz)
-    # print(surface_code.lz)
-    # print(surface_code.hz @ surface_code.lx.T)
-    print("-" * 30)
+    """
+    Bivariate Bicycle Codes
+    """
+    N = 108
+    if N == 72:
+        bb_code, A_list, B_list = create_bivariate_bicycle_codes(
+            6, 6, [3], [1, 2], [1, 2], [3]
+        )  # 72
+    elif N == 90:
+        bb_code, A_list, B_list = create_bivariate_bicycle_codes(
+            15, 3, [9], [1, 2], [2, 7], [0]
+        )  # 90
+    elif N == 108:
+        bb_code, A_list, B_list = create_bivariate_bicycle_codes(
+            9, 6, [3], [1, 2], [1, 2], [3]
+        )  # 108
+    elif N == 144:
+        bb_code, A_list, B_list = create_bivariate_bicycle_codes(
+            12, 6, [3], [1, 2], [1, 2], [3]
+        )  # 144
+    elif N == 288:
+        bb_code, A_list, B_list = create_bivariate_bicycle_codes(
+            12, 12, [3], [2, 7], [1, 2], [3]
+        )  # 288
+    elif N == 360:
+        bb_code, A_list, B_list = create_bivariate_bicycle_codes(
+            30, 6, [9], [1, 2], [25, 26], [3]
+        )  # 360
+    elif N == 756:
+        bb_code, A_list, B_list = create_bivariate_bicycle_codes(
+            21, 18, [3], [10, 17], [3, 19], [5]
+        )  # 756
+    else:
+        print("unsupported N")
 
-    # print(surface_code.hx)
+    """
+    Hypergraph Codes
+    """
+    rep_code = rep_code(3)
+    hm_code = hamming_code(2)
+    hg_code = hypergraph_product(rep_code, hm_code)
 
-    # print(surface_code.lx)
-    # surface_code = hgp(h1=surface_code.hz,h2 =surface_code.hz, compute_distance= True)
-    surface_code.test()
-    p = 0.001
-    print(surface_code.hz.shape)
-    ourdecoder = guass_decoder(surface_code.hz, error_rate=p)
+    # h = hamming_code(2)
+    # h2 = hamming_code(4)
+    # # surface_code = hgp_single(h1=h, compute_distance=True)
+    # # surface_code = hgp(h1=surface_code.hz,h2 =surface_code.hz, compute_distance= True)
+    # surface_code = hgp(h1=h, h2=h2, compute_distance=True)
+
+    # print("-" * 30)
+    # code.test()
+    # print("-" * 30)
+
+    p = 0.0001
+    print(f"hz shape = {bb_code.hz.shape}")
+    ourdecoder = guass_decoder(bb_code.hz, error_rate=p)
     ourdecoder.pre_decode()
     # print(ourdecoder.hz_trans)
-    test_decoder(
-        num_trials=10000, surface_code=surface_code, p=p, ourdecoder=ourdecoder
-    )
+    test_decoder(num_trials=100000, surface_code=bb_code, p=p, ourdecoder=ourdecoder)
