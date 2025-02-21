@@ -1,6 +1,6 @@
 import numpy as np
 import math
-
+SELECT_COL = True
 
 # 高斯消元法（mod 2）
 def gauss_elimination_mod2(A):
@@ -9,6 +9,7 @@ def gauss_elimination_mod2(A):
         for row in A:
             file.write(" ".join(map(str, row)) + "\n")
         file.write("\n\n")
+    print("nozero counts:",np.sum(A,axis=1))
 
     n = len(A)  # 行数
     m = len(A[0])  # 列数
@@ -17,6 +18,44 @@ def gauss_elimination_mod2(A):
 
     syndrome_transpose = np.identity(n, dtype=int)
     zero_row_counts = 0
+    if SELECT_COL:
+        for i in range(n):
+            # 寻找主元
+            if Augmented[i, i] == 0:
+                # 如果主元为0，寻找下面一行有1的列交换
+                # print(i,i)
+                prior_jdx = 0
+                min_nonzero_counts = n
+                for j in range(i+1, m):
+                    if Augmented[i,j] == 1:
+                        nonzero_counts = np.sum(Augmented[:,j])
+                        if nonzero_counts < min_nonzero_counts:
+                            prior_jdx = j
+                            min_nonzero_counts = nonzero_counts
+                j= prior_jdx
+                col_trans[i],col_trans[j] = col_trans[j],col_trans[i]
+                temp = Augmented[:,i].copy() 
+                Augmented[:,i]  = Augmented[:,j]
+                Augmented[:,j] = temp 
+            elif Augmented[i, i] == 1:
+                # 如果主元为0，寻找下面一行有1的列交换
+                # print(i,i)
+                prior_jdx = i
+                min_nonzero_counts = np.sum(Augmented[:,i])
+                for j in range(i+1, m):
+                    if Augmented[i,j] == 1:
+                        nonzero_counts = np.sum(Augmented[:,j])
+                        if nonzero_counts < min_nonzero_counts:
+                            prior_jdx = j
+                            min_nonzero_counts = nonzero_counts
+                j= prior_jdx
+                if i == j:
+                    continue
+                col_trans[i],col_trans[j] = col_trans[j],col_trans[i]
+                temp = Augmented[:,i].copy() 
+                Augmented[:,i]  = Augmented[:,j]
+                Augmented[:,j] = temp 
+    
     for i in range(n):
         # 对主元所在行进行消元
         if Augmented[i, i] == 1:

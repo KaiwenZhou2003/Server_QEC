@@ -10,6 +10,7 @@ SELECT_COL = False
 def gauss_elimination_mod2(A):
     n = len(A)
     m = len(A[0])
+    print("nozero counts:",np.sum(A,axis=0))
     Augmented = A.copy()
     col_trans = np.arange(m)
     if SELECT_COL:

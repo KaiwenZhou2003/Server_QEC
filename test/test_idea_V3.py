@@ -1,9 +1,5 @@
 import numpy as np
 from mqt.qecc import *  # UFDecoder
-import math
-import cvxpy as cp
-from z3 import And, If, Optimize, Xor, Bool, sat
-from functools import reduce
 
 from utils.gauss_elimination import (
     gauss_elimination_mod2,
@@ -44,30 +40,34 @@ class min_sum_decoder:
         n = len(self.hz[0])  # 这里的hz是hstack[B, I]，所以这里的n实际上是n-m
         cur_guess = np.zeros(n, dtype=int)
         cur_conflicts = self.count_conflicts(syndrome, cur_guess)
-
+        best_conflicts = cur_conflicts
+        best_guess = cur_guess
+        candidate_guesses = [[] for _ in range(order+1)]
+        candidate_guesses[0].append(cur_guess)
         for k in range(1, order + 1):
-            best_conflicts = cur_conflicts
-            best_guess = cur_guess
-
-            for i in range(n):
-                if cur_guess[i] == 0:
-                    try_guess = cur_guess.copy()
-                    try_guess[i] = 1
-                    try_conflicts = self.count_conflicts(syndrome, try_guess)
-                    if try_conflicts < best_conflicts:
-                        best_conflicts = try_conflicts
-                        best_guess = try_guess
-                # print(
-                #     f"order={k},i={i}: best_conflicts={best_conflicts}, best_guess={best_guess}"
-                # )
-
-            # 如果当前order没有找到更好的解，则停止
-            if best_conflicts == cur_conflicts:
-                # print(f"No better solution found in order {k}, break\n")
+            for cur_guess in candidate_guesses[k-1]:
+                for i in range(n):
+                    if cur_guess[i] == 0:
+                        try_guess = cur_guess.copy()
+                        try_guess[i] = 1
+                        try_conflicts = self.count_conflicts(syndrome, try_guess)
+                        
+                        if try_conflicts < best_conflicts:
+                            best_conflicts = try_conflicts
+                            best_guess = try_guess
+                        elif try_conflicts < best_conflicts+4:
+                            candidate_guesses[k].append(try_guess)
+            if len(candidate_guesses[k]) == 0:
+                # if best_conflicts > 4:
+                #     print(f"order={k}, best_conflicts={best_conflicts}, best_guess={best_guess}")
                 break
-            else:
-                cur_conflicts = best_conflicts
-                cur_guess = best_guess
+                
+            # 如果当前order没有找到更好的解，则停止
+            # if best_conflicts == cur_conflicts:
+                
+            # else:
+            #     cur_conflicts = best_conflicts
+            #     cur_guess = best_guess
 
         return best_guess
 
@@ -180,7 +180,7 @@ class guass_decoder:
         self.syndrome_transpose = syndrome_transpose
         self.B = hz_trans[:, len(hz_trans) : len(hz_trans[0])]
         # print("density of B:",np.sum(self.B)/(len(self.B)*len(self.B[0])))
-        print("row density of B:", np.sum(self.B, axis=1))
+        print("row density of B:", np.sum(self.B, axis=0))
         print(f"B shape = ({len(self.B)}, {len(self.B[0])})")
         weights = [
             np.log((1 - p) / p) for i in range(H_X.shape[1])
@@ -217,14 +217,14 @@ class guass_decoder:
                 np.zeros(len(self.hz_trans[0]) - len(self.hz_trans), dtype=int),
             ]
         )
-        g = self.ms_decoder.greedy_decode(g_syn, order=4)  # 传入g_syn = [s', 0]
+        g = self.ms_decoder.greedy_decode(g_syn, order=3)  # 传入g_syn = [s', 0]
         # g = self.ms_decoder.our_bp_decode(g_syn)
         f = (np.dot(self.B, g) + syndrome_copy) % 2
         our_result = np.hstack((f, g))
         assert ((self.hz_trans @ our_result) % 2 == syndrome_copy).all()
         trans_results = calculate_original_error(our_result, self.col_trans)
         assert ((self.hz @ trans_results) % 2 == syndrome).all(), trans_results
-        return trans_results
+        return trans_results,g
 
 
 ################################################################################################################
@@ -241,7 +241,7 @@ def test_decoder(num_trials, surface_code, p, ourdecoder):
         max_iter=surface_code.N,
         bp_method="ms",
         ms_scaling_factor=0,
-        osd_method="osd_0",
+        osd_method="osd_e",
         osd_order=7,
     )
     bpdecoder = bp_decoder(
@@ -300,7 +300,9 @@ def test_decoder(num_trials, surface_code, p, ourdecoder):
         #     uf_num_success += 1
 
         # 3. Our Decoder
-        our_predicates = ourdecoder.decode(syndrome)
+        our_predicates,g = ourdecoder.decode(syndrome)
+        if np.sum(our_predicates) > 6 and np.sum(our_predicates) > np.sum(bpdecoder.bp_decoding):
+            our_predicates = bpdecoder.bp_decoding
         our_residual_error = (our_predicates + error) % 2
         # assert not ((surface_code.lz @ our_predicates)%2).all(), (surface_code.lz @our_predicates)
         flag = (surface_code.lz @ our_residual_error % 2).any()
@@ -312,9 +314,8 @@ def test_decoder(num_trials, surface_code, p, ourdecoder):
                 # )
                 pass
         else:
-            # print(
-            #     f"our HW = {np.nonzero(our_predicates)[0]}, true error = {np.nonzero(error)[0]}"
-            # )
+            print(f"our {np.nonzero(our_predicates)[0]}, error HW = {np.nonzero(error)[0]}")
+            print(f"g HW = {np.sum(g)}, our HW = {np.sum(our_predicates)}")
             if bposdflag == 0:
                 # print(
                 #     f"BP+OSD success, we failed: our HW = {np.sum(our_predicates)}, bposd HW = {np.sum(bposddecoder.osdw_decoding)}"
@@ -331,14 +332,14 @@ def test_decoder(num_trials, surface_code, p, ourdecoder):
     # uf_error_rate = 1- uf_num_success / num_trials
     our_error_rate = 1 - our_num_success / num_trials
     print(f"\nTotal trials: {num_trials}")
-    # print(f"BP error rate: {bp_error_rate * 100:.2f}%")
-    # print(f"BP+OSD error rate: {bposd_error_rate * 100:.2f}%")
-    # # print(f"UF Success rate: {uf_error_rate * 100:.2f}%")
-    # print(f"Our error rate: {our_error_rate * 100:.2f}%")
-    print(f"BP error number: {num_trials - bp_num_success}")
-    print(f"BP+OSD error number: {num_trials - bposd_num_success}")
+    print(f"BP error rate: {bp_error_rate * 100:.6f}%")
+    print(f"BP+OSD error rate: {bposd_error_rate * 100:.6f}%")
     # print(f"UF Success rate: {uf_error_rate * 100:.2f}%")
-    print(f"Our error number: {num_trials - our_num_success}")
+    print(f"Our error rate: {our_error_rate * 100:.6f}%")
+    # print(f"BP error number: {num_trials - bp_num_success}")
+    # print(f"BP+OSD error number: {num_trials - bposd_num_success}")
+    # # print(f"UF Success rate: {uf_error_rate * 100:.2f}%")
+    # print(f"Our error number: {num_trials - our_num_success}")
 
 
 ################################################################################################################
@@ -406,7 +407,7 @@ if __name__ == "__main__":
     # code.test()
     # print("-" * 30)
 
-    p = 0.05
+    p = 0.01
     code = bb_code
     print(f"hz shape = {code.hz.shape}")
     ourdecoder = guass_decoder(code.hz, error_rate=p)
@@ -416,4 +417,4 @@ if __name__ == "__main__":
         for row in ourdecoder.hz_trans:
             file.write(" ".join(map(str, row)) + "\n")
 
-    test_decoder(num_trials=10000, surface_code=code, p=p, ourdecoder=ourdecoder)
+    test_decoder(num_trials=100000, surface_code=code, p=p, ourdecoder=ourdecoder)
