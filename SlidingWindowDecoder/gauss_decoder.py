@@ -181,7 +181,7 @@ class gauss_decoder:
         # g = self.ms_decoder.our_bp_decode(g_syn)
         f = (np.dot(self.B, g) + syndrome_copy) % 2
         our_result = np.hstack((f, g))
-        # assert ((self.hz_trans @ our_result) % 2 == syndrome_copy).all()
+        assert ((self.hz_trans @ our_result) % 2 == syndrome_copy).all()
         trans_results = calculate_original_error(our_result, self.col_trans)
-        # assert ((self.hz @ trans_results) % 2 == syndrome).all(), trans_results
+        assert ((self.hz @ trans_results) % 2 == syndrome).all(), trans_results
         return trans_results

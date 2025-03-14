@@ -1,21 +1,18 @@
+"""
+feature:
+1. 改进了贪心，不要过度早停
+2. Hybrid（贪心+BP）
+"""
+
 import numpy as np
 from mqt.qecc import *  # UFDecoder
-import math
-import cvxpy as cp
-from z3 import And, If, Optimize, Xor, Bool, sat
-from functools import reduce
-
 from utils.gauss_elimination import (
     gauss_elimination_mod2,
     calculate_tran_syndrome,
     calculate_original_error,
 )
-
-
-################################################################################################################
-
+from utils.test_decoder import test_decoder
 from ldpc import bposd_decoder, bp_decoder
-from our_bp_decoder import bp_decoder as our_bp_decoder
 
 
 class min_sum_decoder:
@@ -36,7 +33,7 @@ class min_sum_decoder:
         hzg = hzg.astype(int)
         return np.sum(hzg ^ syndrome)
 
-    def greedy_decode(self, syndrome, order=6):
+    def greedy_decode_V1(self, syndrome, order=6):
         """
         贪心算法，目前效果最优
         syndrom = [s', 0]
@@ -57,9 +54,6 @@ class min_sum_decoder:
                     if try_conflicts < best_conflicts:
                         best_conflicts = try_conflicts
                         best_guess = try_guess
-                # print(
-                #     f"order={k},i={i}: best_conflicts={best_conflicts}, best_guess={best_guess}"
-                # )
 
             # 如果当前order没有找到更好的解，则停止
             if best_conflicts == cur_conflicts:
@@ -71,45 +65,33 @@ class min_sum_decoder:
 
         return best_guess
 
-    def greedy_decode_approx(self, syndrome, order=6):
+    def greedy_decode_V2(self, syndrome, order=6):
         """
-        近似求解的贪心算法，只求出threshold个1就退出
+        贪心算法，目前效果最优
         syndrom = [s', 0]
         """
         n = len(self.hz[0])  # 这里的hz是hstack[B, I]，所以这里的n实际上是n-m
         cur_guess = np.zeros(n, dtype=int)
         cur_conflicts = self.count_conflicts(syndrome, cur_guess)
-
-        threshold = 2
-
+        best_conflicts = cur_conflicts
+        best_guess = cur_guess
+        candidate_guesses = [[] for _ in range(order + 1)]
+        candidate_guesses[0].append(cur_guess)
         for k in range(1, order + 1):
-            best_conflicts = cur_conflicts
-            best_guess = cur_guess
+            for cur_guess in candidate_guesses[k - 1]:
+                for i in range(n):
+                    if cur_guess[i] == 0:
+                        try_guess = cur_guess.copy()
+                        try_guess[i] = 1
+                        try_conflicts = self.count_conflicts(syndrome, try_guess)
 
-            max_conflicts = 0
-            max_conficlits_idx = -1
-            for i in range(n):
-                if cur_guess[i] == 0:
-                    try_guess = cur_guess.copy()
-                    try_guess[i] = 1
-                    try_conflicts = self.count_conflicts(syndrome, try_guess)
-                    if try_conflicts < best_conflicts:
-                        best_conflicts = try_conflicts
-                        best_guess = try_guess
-                        # if int(np.sum(best_guess)) >= threshold:
-                        #     return best_guess
-                    else:
-                        if try_conflicts > max_conflicts:
-                            max_conflicts = try_conflicts
-                            max_conficlits_idx = i
-
-            best_guess[max_conficlits_idx] = 2
-            # 如果当前order没有找到更好的解，则停止
-            if best_conflicts == cur_conflicts:
+                        if try_conflicts < best_conflicts:
+                            best_conflicts = try_conflicts
+                            best_guess = try_guess
+                        elif try_conflicts < best_conflicts + 4:
+                            candidate_guesses[k].append(try_guess)
+            if len(candidate_guesses[k]) == 0:
                 break
-            else:
-                cur_conflicts = best_conflicts
-                cur_guess = best_guess
 
         return best_guess
 
@@ -170,6 +152,7 @@ class guass_decoder:
         self.error_rate = error_rate
         pass
 
+    # 预解码，高斯消元得到B
     def pre_decode(self):
         H_X = self.hz
         p = self.error_rate
@@ -180,7 +163,7 @@ class guass_decoder:
         self.syndrome_transpose = syndrome_transpose
         self.B = hz_trans[:, len(hz_trans) : len(hz_trans[0])]
         # print("density of B:",np.sum(self.B)/(len(self.B)*len(self.B[0])))
-        print("row density of B:", np.sum(self.B, axis=1))
+        print("row density of B:", np.sum(self.B, axis=0))
         print(f"B shape = ({len(self.B)}, {len(self.B[0])})")
         weights = [
             np.log((1 - p) / p) for i in range(H_X.shape[1])
@@ -189,169 +172,36 @@ class guass_decoder:
         Ig = np.identity(len(self.hz_trans[0]) - len(self.hz_trans))
         self.BvIg = np.vstack([self.B, Ig])
         self.ms_decoder = min_sum_decoder(self.BvIg, self.error_rate)
-        # W_f = weights[: H_X.shape[0]]
-        # W_g = weights[H_X.shape[0] :]
 
-        # W_f_B = np.dot(W_f, B)  # W_f * B
-        # W_g_B_W_f = W_f_B + W_g  # W_f * B + W_g
-        # # print(f"W_g_B_W_f = {W_g_B_W_f}")
-
-        # self.zero_g = np.where(
-        #     W_g_B_W_f > 0,
-        #     0,
-        #     np.where(W_g_B_W_f < 0, 1, np.random.randint(0, 2, size=W_g_B_W_f.shape)),
-        # )
-        # # print(f"g = {g}")
-
-        # self.B_g = np.dot(B, self.zero_g)  # B * g
-        # print(f"B_g = {B_g}")
-
+    # 正式解码
     def decode(self, syndrome):
         syndrome_copy = calculate_tran_syndrome(
             syndrome.copy(), self.syndrome_transpose
         )
         syndrome_copy = syndrome_copy[: len(self.hz_trans)]
-        # print(f"trans syndrome = {syndrome_copy}")
         g_syn = np.hstack(
             [
                 syndrome_copy,
                 np.zeros(len(self.hz_trans[0]) - len(self.hz_trans), dtype=int),
             ]
         )
-        g = self.ms_decoder.greedy_decode(g_syn, order=4)  # 传入g_syn = [s', 0]
+        g = self.ms_decoder.greedy_decode_V1(g_syn, order=3)  # 传入g_syn = [s', 0]
         # g = self.ms_decoder.our_bp_decode(g_syn)
         f = (np.dot(self.B, g) + syndrome_copy) % 2
+
         our_result = np.hstack((f, g))
         assert ((self.hz_trans @ our_result) % 2 == syndrome_copy).all()
         trans_results = calculate_original_error(our_result, self.col_trans)
         assert ((self.hz @ trans_results) % 2 == syndrome).all(), trans_results
-        return trans_results
-
-
-################################################################################################################
-
-
-def test_decoder(num_trials, surface_code, p, ourdecoder):
-    from ldpc import bposd_decoder, bp_decoder
-
-    # BP+OSD
-    bposddecoder = bposd_decoder(
-        surface_code.hz,
-        error_rate=p,
-        channel_probs=[None],
-        max_iter=surface_code.N,
-        bp_method="ms",
-        ms_scaling_factor=0,
-        osd_method="osd_0",
-        osd_order=7,
-    )
-    bpdecoder = bp_decoder(
-        surface_code.hz,
-        error_rate=p,
-        channel_probs=[None],
-        max_iter=surface_code.N,
-        bp_method="ms",  # minimum sum
-        ms_scaling_factor=0,
-    )
-
-    # UFDecoder
-    code = Code(surface_code.hx, surface_code.hz)
-    uf_decoder = UFHeuristic()
-    uf_decoder.set_code(code)
-
-    bposd_num_success = 0
-    bp_num_success = 0
-    uf_num_success = 0
-    our_num_success = 0
-
-    for i in range(num_trials):
-
-        # generate error
-        error = np.zeros(surface_code.N).astype(int)
-        for q in range(surface_code.N):
-            if np.random.rand() < p:
-                error[q] = 1
-
-        syndrome = surface_code.hz @ error % 2
-
-        """Decode"""
-        # 0. BP
-        bpdecoder.decode(syndrome)
-
-        # 1. BP+OSD
-        bposddecoder.decode(syndrome)
-        # bposd_result =  bposddecoder.osdw_decoding
-
-        bposd_residual_error = (bposddecoder.osdw_decoding + error) % 2
-        bposdflag = (surface_code.lz @ bposd_residual_error % 2).any()
-        if bposdflag == 0:
-            bposd_num_success += 1
-
-        bp_residual_error = (bpdecoder.bp_decoding + error) % 2
-        bpflag = (surface_code.lz @ bp_residual_error % 2).any()
-        if bpflag == 0:
-            bp_num_success += 1
-
-        # 2. UFDecoder
-        # uf_decoder.decode(syndrome)
-        # uf_result = np.array(uf_decoder.result.estimate).astype(int)
-        # uf_residual_error = (uf_result + error) % 2
-        # ufflag = (surface_code.lz @ uf_residual_error % 2).any()
-        # if ufflag == 0:
-        #     uf_num_success += 1
-
-        # 3. Our Decoder
-        our_predicates = ourdecoder.decode(syndrome)
-        our_residual_error = (our_predicates + error) % 2
-        # assert not ((surface_code.lz @ our_predicates)%2).all(), (surface_code.lz @our_predicates)
-        flag = (surface_code.lz @ our_residual_error % 2).any()
-        if flag == 0:
-            our_num_success += 1
-            if bposdflag == 1:
-                # print(
-                #     f"BP+OSD fail, we success: our HW = {np.sum(our_predicates)}, bposd HW = {np.sum(bposddecoder.osdw_decoding)}"
-                # )
-                pass
-        else:
-            # print(
-            #     f"our HW = {np.nonzero(our_predicates)[0]}, true error = {np.nonzero(error)[0]}"
-            # )
-            if bposdflag == 0:
-                # print(
-                #     f"BP+OSD success, we failed: our HW = {np.sum(our_predicates)}, bposd HW = {np.sum(bposddecoder.osdw_decoding)}"
-                # )
-                # print(
-                #     f"{our_predicates}, our HW = {np.sum(our_predicates)}\n{bposddecoder.osdw_decoding}, bposd HW = {np.sum(bposddecoder.osdw_decoding)}"
-                # )
-                # print("\n")
-                pass
-            # print(our_predicates,error)
-
-    bposd_error_rate = 1 - bposd_num_success / num_trials
-    bp_error_rate = 1 - bp_num_success / num_trials
-    # uf_error_rate = 1- uf_num_success / num_trials
-    our_error_rate = 1 - our_num_success / num_trials
-    print(f"\nTotal trials: {num_trials}")
-
-    """Error rate"""
-    print(f"BP error rate: {bp_error_rate * 100:.2f}%")
-    print(f"BP+OSD error rate: {bposd_error_rate * 100:.2f}%")
-    # print(f"UF Success rate: {uf_error_rate * 100:.2f}%")
-    print(f"Our error rate: {our_error_rate * 100:.2f}%")
-
-    """Error number"""
-    # print(f"BP error number: {num_trials - bp_num_success}")
-    # print(f"BP+OSD error number: {num_trials - bposd_num_success}")
-    # # print(f"UF Success rate: {uf_error_rate * 100:.2f}%")
-    # print(f"Our error number: {num_trials - our_num_success}")
+        return trans_results, g
 
 
 ################################################################################################################
 
 if __name__ == "__main__":
     np.random.seed(0)
-    from ldpc.codes import rep_code, ring_code, hamming_code
-    from bposd.hgp import hgp, hgp_single
+    import ray
+    from ldpc.codes import ring_code
     from utils.gen_codes import (
         create_bivariate_bicycle_codes,
         hypergraph_product,
@@ -362,7 +212,7 @@ if __name__ == "__main__":
     """
     Bivariate Bicycle Codes
     """
-    N = 288
+    N = 144
     if N == 72:
         bb_code, A_list, B_list = create_bivariate_bicycle_codes(
             6, 6, [3], [1, 2], [1, 2], [3]
@@ -397,9 +247,9 @@ if __name__ == "__main__":
     """
     Hypergraph Codes
     """
-    rep_code = rep_code(5)
-    hm_code = hamming_code(5)
-    hg_code = hypergraph_product(rep_code, hm_code)
+    code_1 = rep_code(5)
+    code_2 = rep_code(5)
+    hg_code = hypergraph_product(code_1, code_2)
 
     # h = hamming_code(2)
     # h2 = hamming_code(4)
@@ -412,13 +262,27 @@ if __name__ == "__main__":
     # print("-" * 30)
 
     p = 0.001
-    code = hg_code
+    code = bb_code
     print(f"hz shape = {code.hz.shape}")
+
     ourdecoder = guass_decoder(code.hz, error_rate=p)
     ourdecoder.pre_decode()
     print(f"ourdecoder.hz_trans = {ourdecoder.hz_trans}")
-    with open("hz_trans.txt", "w") as file:
+
+    with open("./gauss_matrix_txt/hz_trans.txt", "w") as file:
         for row in ourdecoder.hz_trans:
             file.write(" ".join(map(str, row)) + "\n")
 
-    test_decoder(num_trials=1000, surface_code=code, p=p, ourdecoder=ourdecoder)
+    # ray.init()
+
+    # total_trials = 100000000  # 1e8
+    # single_trials = 100000  # 每个work负责的trial
+    # num_workers = int(total_trials / single_trials)
+
+    # futures = [
+    #     test_decoder.remote(single_trials, code, p, ourdecoder)
+    #     for _ in range(num_workers)
+    # ]
+    # results = ray.get(futures)
+
+    test_decoder(num_trials=10000, surface_code=code, p=p, ourdecoder=ourdecoder)

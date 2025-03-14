@@ -5,10 +5,10 @@ import math
 # 高斯消元法（mod 2）
 def gauss_elimination_mod2(A):
 
-    with open("origin_bbcode.txt", "w") as file:
-        for row in A:
-            file.write(" ".join(map(str, row)) + "\n")
-        file.write("\n\n")
+    # with open("../gauss_matrix_txt/origin_bbcode.txt", "w") as file:
+    #     for row in A:
+    #         file.write(" ".join(map(str, row)) + "\n")
+    #     file.write("\n\n")
 
     n = len(A)  # 行数
     m = len(A[0])  # 列数
@@ -53,10 +53,10 @@ def gauss_elimination_mod2(A):
                     Augmented[j] ^= Augmented[i]
                     syndrome_transpose[j] ^= syndrome_transpose[i]
 
-    with open("Augmented.txt", "w") as file:
-        for row in Augmented:
-            file.write(" ".join(map(str, row)) + "\n")
-        file.write("\n\n")
+    # with open("../gauss_matrix_txt/Augmented.txt", "w") as file:
+    #     for row in Augmented:
+    #         file.write(" ".join(map(str, row)) + "\n")
+    #     file.write("\n\n")
 
     """
     后处理，找到孤立的主元，把它们和前面对角线上的主元拼接到一起
