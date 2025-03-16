@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qldpcdecoder"
+version = "0.1.0"
+description = "A realtime decoder for QLDPC codes, including the software and hardware implementations."
+authors = [
+    { name="Debin Xiang", email="db.xiang@zju.edu.cn" }
+]
+license = { file="LICENSE" }
+readme = "README.md"
+requires-python = ">=3.7"
+dependencies = [
+    "ldpc",
+    "numpy",
+    "z3-solver",
+    "ray",
+    "cvxpy"
+]
+[tool.setuptools.packages.find]
+where = ["qldpcdecoder"]  # 从 src 目录查找包
+[project.urls]
+Homepage = "https://janusq.com/"
+Repository = "https://github.com/JanusQ/QECDecoder"
