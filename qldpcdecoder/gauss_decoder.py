@@ -9,12 +9,6 @@ SELECT_COL = True
 # 高斯消元法（mod 2）
 def gauss_elimination_mod2(A):
 
-    with open("origin_bbcode.txt", "w") as file:
-        for row in A:
-            file.write(" ".join(map(str, row)) + "\n")
-        file.write("\n\n")
-    print("nozero counts:",np.sum(A,axis=1))
-
     n = len(A)  # 行数
     m = len(A[0])  # 列数
    
@@ -100,10 +94,6 @@ def gauss_elimination_mod2(A):
                     Augmented[j] ^= Augmented[i]
                     syndrome_transpose[j] ^= syndrome_transpose[i]
 
-    with open("Augmented.txt", "w") as file:
-        for row in Augmented:
-            file.write(" ".join(map(str, row)) + "\n")
-        file.write("\n\n")
 
     """
     后处理，找到孤立的主元，把它们和前面对角线上的主元拼接到一起
@@ -139,8 +129,6 @@ def gauss_elimination_mod2(A):
     删除最后的全0行
     """
     Augmented = Augmented[: n - zero_row_counts, :]
-    print("find zero rows:", zero_row_counts)
-    # syndrome_transpose = syndrome_transpose[:n-zero_row_counts,:]
     return Augmented, col_trans, syndrome_transpose
 
 
@@ -424,51 +412,3 @@ def one_test(surface_code,p):
             pass
             # print(our_predicates,error)
     return bp_num_success/N,bposd_num_success/N,our_num_success/N
-
-def test_decoder(num_trials,surface_code,p):
-
-
-
-    # UFDecoder
-    code = Code(surface_code.hx, surface_code.hz)
-    # uf_decoder = UFHeuristic()
-    # uf_decoder.set_code(code)
-
-    results = ray.get([one_test.remote(surface_code,p) for i in range(int(num_trials/1000))])
-    res = np.sum(results,axis=0)/(int(num_trials/1000))
-    print(res)
-
-        
-        
-        
-            
-
-    bposd_error_rate = 1- res[1]
-    bp_error_rate = 1- res[0]
-    our_error_rate = 1- res[2]
-    print(f"Logical error rate: {1/num_trials:.9f}")
-    print(f"BP error rate: {bp_error_rate :.9f}")
-    print(f"BP+OSD error rate: {bposd_error_rate :.9f}")
-    print(f"Our error rate: {our_error_rate :.9f}")
-
-if __name__ == "__main__":
-    np.random.seed(0)
-    from ldpc.codes import rep_code,ring_code,hamming_code
-    from bposd.hgp import hgp,hgp_single
-    h = ring_code(5)
-    h2 = rep_code(7)
-    h3 = hgp_single(h1=h,compute_distance=True)
-    surface_code = hgp(h1=h2, h2=h3.hz, compute_distance=True)
-    print(surface_code.hz)
-    print(surface_code.lz)
-    print("-"*30)
-    
-    surface_code.test()
-    p =0.001
-    print(surface_code.hz.shape)
-    
-    # print(ourdecoder.hz_trans)
-    test_decoder(num_trials=100000,surface_code=surface_code,p=p)
-
-    
-    

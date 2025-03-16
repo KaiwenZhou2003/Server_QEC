@@ -1,7 +1,7 @@
 import numpy as np
 from functools import reduce
 from scipy.sparse import identity, hstack, kron, csr_matrix
-from .basis_compute import row_echelon, rank, kernel, compute_code_distance, inverse, int2bin
+from .utils import row_echelon, rank, kernel, compute_code_distance, inverse, int2bin
 from collections import deque
 
 

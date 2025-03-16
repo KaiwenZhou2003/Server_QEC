@@ -9,18 +9,24 @@ description = "A realtime decoder for QLDPC codes, including the software and ha
 authors = [
     { name="Debin Xiang", email="db.xiang@zju.edu.cn" }
 ]
-license = { file="LICENSE" }
+license = { text="GNU GENERAL PUBLIC LICENSE" }
 readme = "README.md"
 requires-python = ">=3.7"
 dependencies = [
-    "ldpc",
+    "ldpc==0.1.60",
     "numpy",
     "z3-solver",
     "ray",
     "cvxpy"
 ]
-[tool.setuptools.packages.find]
-where = ["qldpcdecoder"]  # 从 src 目录查找包
+
 [project.urls]
 Homepage = "https://janusq.com/"
 Repository = "https://github.com/JanusQ/QECDecoder"
+
+[tool.setuptools]
+packages = ["qldpcdecoder"]
+
+# Optional: Add if you have command-line tools
+[project.scripts]
+qldpcdecoder-cli = "qldpcdecoder.cli:main"
