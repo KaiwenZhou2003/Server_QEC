@@ -59,6 +59,8 @@ class css_code:  # a refactored version of Roffe's package
         if self.codetype.lower() == "bb":
             self.A_list = kwargs.get('A_list',[])
             self.B_list = kwargs.get('B_list',[])
+            self.A_matrixs = kwargs.get('A_matrixs',[])
+            self.B_matrixs = kwargs.get('B_matrixs',[])
         elif self.codetype.lower() == "hp":
             self.h1 = kwargs.get('h1',None)
             self.h2 = kwargs.get('h2',None)
@@ -359,7 +361,7 @@ def create_bivariate_bicycle_codes(
     B = reduce(lambda x, y: x + y, B_list).toarray()
     hx = np.hstack((A, B))
     hz = np.hstack((B.T, A.T))
-    return css_code(hx, hz, name=name, name_prefix="BB", check_css=True, A_list= A_list, B_list= B_list)
+    return css_code(hx, hz, name=name, name_prefix="BB", check_css=True, A_list= A_x_pows+A_y_pows, B_list= B_y_pows+B_x_pows, A_matrixs=A_list, B_matrixs=B_list)
 
 
 # For reading in overcomplete check matrices

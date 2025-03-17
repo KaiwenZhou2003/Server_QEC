@@ -306,15 +306,15 @@ def dem_to_check_matrices(dem: stim.DetectorErrorModel, return_col_dict=False):
 def circuit_level_simulation(code, error_rate, decoders,
     num_repeat=12,
     num_trials=10000,
-    W=2,
+    W=1,
     F=1,
-    z_basis=True,
+    z_basis=False,
     noisy_prior=None,
     method = 0,
     plot = False
 ):
 
-    circuit = build_circuit(code, code.A_list, code.B_list, error_rate, num_repeat, z_basis=z_basis)
+    circuit = build_circuit(code, code.A_matrixs, code.B_matrixs, error_rate, num_repeat, z_basis=z_basis)
     dem = circuit.detector_error_model()
     chk, obs, priors, col_dict = dem_to_check_matrices(dem, return_col_dict=True)
     num_row, num_col = chk.shape
@@ -433,10 +433,12 @@ def circuit_level_simulation(code, error_rate, decoders,
             b = anchors[bottom_right]
             c = anchors[top_left + F]  # commit region bottom right
             # 判断当前窗口是否解码成功。每个窗口内解码num_trials次
+            
             num_flag_err = 0
             detector_win = new_det_data[:, a[0] : b[0]]
+            decoder.set_h(mat, prior, error_rate)
             for j in range(num_trials):
-                syndrome = [1 if item else 0 for item in detector_win[j]]
+                syndrome = np.array([1 if item else 0 for item in detector_win[j]])
                 decoding_start_time = time.perf_counter()
                 # print(f"detector_win[j] = {detector_win[j]}")
                 # print(f"syndrome = {syndrome}")
@@ -463,7 +465,8 @@ def circuit_level_simulation(code, error_rate, decoders,
         num_flagged_err = flagged_err.astype(int).sum()
         print(f"Overall Flagged Errors: {num_flagged_err}/{num_trials}")
         logical_err = ((obs_data + total_e_hat @ obs.T) % 2).any(axis=1)
-        num_err = np.logical_or(flagged_err, logical_err).astype(int).sum()
+        # num_err = np.logical_or(flagged_err, logical_err).astype(int).sum()
+        num_err = logical_err.astype(int).sum()
         print(f"Logical Errors: {num_err}/{num_trials}")
         p_l = num_err / num_trials
         p_l_per_round = 1 - (1 - p_l) ** (1 / num_repeat)
@@ -471,7 +474,7 @@ def circuit_level_simulation(code, error_rate, decoders,
         # because the first round is for encoding, the next (num_repeat-1) rounds are syndrome measurements rounds
         print("logical error per round:", p_l_per_round)
         print(f">>> end testing >>>")
-        logical_errs[decoder.name] = logical_err
+        logical_errs[decoder.name] = p_l
         logical_errs_per_round[decoder.name] = p_l_per_round
         decodingtime[decoder.name] = np.mean(decodingtime_list)
         

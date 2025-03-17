@@ -289,16 +289,20 @@ class min_sum_decoder:
 
 
 class guass_decoder(Decoder):
-    def __init__(self, code_h, error_rate, **kwargs):
+    def __init__(self, **kwargs):
         super().__init__("Gauss")
-        
-        self.hz = code_h
-        self.error_rate = error_rate
-        self.pre_decode()
+
         pass
 
+    def set_h(self, code_h,prior,p, **kwargs):
+        self.hz = code_h
+        self.prior = prior
+        self.p = p
+        self.error_rate = 1 - self.p
+        self.pre_decode()
+    
     def pre_decode(self):
-        p = self.error_rate
+        p = self.p
         hz_trans, col_trans, syndrome_transpose = gauss_elimination_mod2(self.hz)
         self.hz_trans = hz_trans
         print(f"hz trans rank {len(self.hz_trans)}, original {len(self.hz)}")
@@ -336,79 +340,3 @@ class guass_decoder(Decoder):
         # assert ((self.hz @ trans_results) % 2 == syndrome).all(), trans_results
         return trans_results
 
-
-################################################################################################################
-
-@ray.remote
-def one_test(surface_code,p):
-    # generate error
-    from ldpc import bposd_decoder,bp_decoder
-
-    bposd_num_success = 0
-    bp_num_success = 0
-    our_num_success = 0
-        # BP+OSD
-    bposddecoder = bposd_decoder(
-        surface_code.hz,
-        error_rate=p,
-        channel_probs=[None],
-        max_iter=surface_code.N,
-        bp_method="ms",
-        ms_scaling_factor=0,
-        osd_method="osd_e",
-        osd_order=7,
-    )
-    bpdecoder = bp_decoder(
-        surface_code.hz,
-        error_rate=p,
-        channel_probs=[None],
-        max_iter=surface_code.N,
-        bp_method="ms",  # minimum sum
-        ms_scaling_factor=0,
-    )
-    ourdecoder = guass_decoder(surface_code.hz,error_rate=p)
-    ourdecoder.pre_decode()
-    N = 1000
-    for i in range(N):
-        error = np.zeros(surface_code.N).astype(int)
-        for q in range(surface_code.N):
-            if np.random.rand() < p:
-                error[q] = 1
-
-        syndrome = surface_code.hz @ error % 2
-
-        """Decode"""
-        # 0. BP
-        bpdecoder.decode(syndrome)
-        # 1. BP+OSD
-        bposddecoder.decode(syndrome)
-        # bposd_result =  bposddecoder.osdw_decoding
-        
-        bposd_residual_error = (bposddecoder.osdw_decoding + error) % 2
-        bposdflag = (surface_code.lz @ bposd_residual_error % 2).any()
-        if bposdflag == 0:
-            bposd_num_success += 1
-
-        bp_residual_error = (bpdecoder.bp_decoding + error) % 2
-        bpflag = (surface_code.lz @ bp_residual_error % 2).any()
-        if bpflag == 0:
-            bp_num_success += 1
-        # 2. UFDecoder
-        # uf_decoder.decode(syndrome)
-        # uf_result = np.array(uf_decoder.result.estimate).astype(int)
-        # uf_residual_error = (uf_result + error) % 2
-        # ufflag = (surface_code.lz @ uf_residual_error % 2).any()
-        # if ufflag == 0:
-        #     uf_num_success += 1
-        # 3. Our Decoder
-        our_predicates = ourdecoder.decode(syndrome)
-        our_residual_error = (our_predicates + error) % 2
-        # assert not ((surface_code.lz @ our_predicates)%2).all(), (surface_code.lz @our_predicates)
-        flag = (surface_code.lz @ our_residual_error % 2).any()
-        if flag == 0:
-            our_num_success += 1
-        else:
-            print(np.nonzero(our_predicates)[0],np.nonzero(error)[0])
-            pass
-            # print(our_predicates,error)
-    return bp_num_success/N,bposd_num_success/N,our_num_success/N
