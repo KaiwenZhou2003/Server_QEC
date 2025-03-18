@@ -310,7 +310,7 @@ def circuit_level_simulation(code, error_rate, decoders,
     F=1,
     z_basis=False,
     noisy_prior=None,
-    method = 0,
+    method = 2,
     plot = False
 ):
 
@@ -318,6 +318,8 @@ def circuit_level_simulation(code, error_rate, decoders,
     dem = circuit.detector_error_model()
     chk, obs, priors, col_dict = dem_to_check_matrices(dem, return_col_dict=True)
     num_row, num_col = chk.shape
+    code_h = code.hz if z_basis else code.hx
+    code_l = code.lz if z_basis else code.lx
     n = code.N
     n_half = n // 2
 
@@ -401,9 +403,15 @@ def circuit_level_simulation(code, error_rate, decoders,
         chk_submats.append(mat)
         prior_subvecs.append(prior)
         if plot:
-            ax[i].imshow(mat, cmap="gist_yarg")
+            if num_win == 1:
+                ax.imshow(mat, cmap="gist_yarg")
+            else:
+                ax[i].imshow(mat, cmap="gist_yarg")
         top_left += F
 
+    # save figure
+    if plot:
+        plt.savefig("circuit_level_decodingmatrix.png")
     start_time = time.perf_counter()
     dem_sampler: stim.CompiledDemSampler = dem.compile_sampler()
     det_data, obs_data, err_data = dem_sampler.sample(
@@ -417,65 +425,186 @@ def circuit_level_simulation(code, error_rate, decoders,
     logical_errs = {decoder.name:0 for decoder in decoders}
     logical_errs_per_round = {decoder.name:0 for decoder in decoders}
     decodingtime= {}
-    for decoder in decoders:
-        print(f">>> testing {decoder.name} >>>")
-        total_e_hat = np.zeros((num_trials, num_col))
-        new_det_data = det_data.copy()
-        start_time = time.perf_counter()
-        top_left = 0
-        decodingtime_list = []
-        # 分窗口进行解码，提升效率
-        for i in range(num_win):
-            mat = chk_submats[i]
-            prior = prior_subvecs[i]
-            a = anchors[top_left]
-            bottom_right = min(top_left + W, len(anchors) - 1)
-            b = anchors[bottom_right]
-            c = anchors[top_left + F]  # commit region bottom right
-            # 判断当前窗口是否解码成功。每个窗口内解码num_trials次
-            
-            num_flag_err = 0
-            detector_win = new_det_data[:, a[0] : b[0]]
-            decoder.set_h(mat, prior, error_rate)
+    if method == 4: # use the last round decoding
+        for decoder in decoders:
+            print(f">>> testing {decoder.name} >>>")
+            new_det_data = det_data.copy()
+            last_syndrome = np.zeros((num_trials,n_half), dtype=int)
+            for i in range(num_win):
+                last_syndrome ^= det_data[:,n_half*W*i:n_half*W*(i+1)]
+            decoder.set_h(code_h, [None], error_rate)
+            start_time = time.perf_counter()
+            all_e_hat = np.zeros((num_trials, n), dtype=int)
             for j in range(num_trials):
-                syndrome = np.array([1 if item else 0 for item in detector_win[j]])
-                decoding_start_time = time.perf_counter()
-                # print(f"detector_win[j] = {detector_win[j]}")
-                # print(f"syndrome = {syndrome}")
-                e_hat = decoder.decode(syndrome)  # detector_win[j] is syndrome, len == m
-                decoding_end_time = time.perf_counter()
-                decodingtime_list.append(decoding_end_time-decoding_start_time)
-                # if shorten: print(f"pm: {bpd.min_pm}")
-                is_flagged = ((mat @ e_hat + detector_win[j]) % 2).any()
-                num_flag_err += is_flagged
-                if i == num_win - 1:  # last window
-                    total_e_hat[j][a[1] : b[1]] = e_hat
+                syndrome = np.array([1 if item else 0 for item in last_syndrome[j]])
+                decodingerror = decoder.decode(syndrome)
+                all_e_hat[j] = decodingerror
+            decoding_end_time = time.perf_counter()
+            decodingtime[decoder.name] = (decoding_end_time-start_time)/num_trials
+            logical_e_hat = all_e_hat @ code_l.T % 2
+            logical_err = ((obs_data + logical_e_hat) % 2).any(axis=1)
+            num_err = logical_err.astype(int).sum()
+            p_l = num_err / num_trials
+            p_l_per_round = 1 - (1 - p_l) ** (1 / num_repeat)
+            # may also use ** (1/(num_repeat-1))
+            # because the first round is for encoding, the next (num_repeat-1) rounds are syndrome measurements rounds
+            print("logical error per round:", p_l_per_round)
+            logical_errs[decoder.name] = p_l
+            logical_errs_per_round[decoder.name] = p_l_per_round
+    elif method == 3: # use max_likelihood decoding without windowing
+        for decoder in decoders:
+            print(f">>> testing {decoder.name} >>>")
+            new_det_data = det_data.copy()
+            start_time = time.perf_counter()
+            all_e_hat = np.zeros((num_trials, n* (num_repeat +1)))
+            all_m_hat = np.zeros((num_trials, n_half*num_repeat))
+            decodingtime_list = []
+            fullhz = np.zeros((n_half*(num_repeat+1), n* (num_repeat +1)+ n_half*num_repeat),dtype=int)
+            for i in range(num_win):
+                if i == 0:
+                    fullhz[n_half*i:n_half*(i+1),(n+n_half)*i:(n+n_half)*i+n] = code_h
+                    fullhz[n_half*i:n_half*(i+1),(n+n_half)*i+n:(n+n_half)*(i+1)] = np.identity(n_half)
+                elif i == num_win - 1:
+                    fullhz[n_half*i:n_half*(i+1),(n+n_half)*i-n_half:(n+n_half)*i] = np.identity(n_half)
+                    fullhz[n_half*i:n_half*(i+1),(n+n_half)*i:(n+n_half)*i+n] = code_h
                 else:
-                    total_e_hat[j][a[1] : c[1]] = e_hat[: c[1] - a[1]]
+                    fullhz[n_half*i:n_half*(i+1),(n+n_half)*i-n_half:(n+n_half)*i] = np.identity(n_half)
+                    fullhz[n_half*i:n_half*(i+1),(n+n_half)*i:(n+n_half)*i+n] = code_h
+                    fullhz[n_half*i:n_half*(i+1),(n+n_half)*i+n:(n+n_half)*(i+1)] = np.identity(n_half)
+            decoder.set_h(fullhz, [None], error_rate)
+            all_e_m_hat = np.zeros((num_trials, n* (num_repeat +1)+ n_half*num_repeat))
+            for j in range(num_trials):
+                syndrome = np.array([1 if item else 0 for item in new_det_data[j]])
+                decodingerror = decoder.decode(syndrome)
+                all_e_m_hat[j] = decodingerror
+            final_e_hat = np.zeros((num_trials, n), dtype=int)
+            left = 0
+            for i in range(num_win):
+                final_e_hat = (final_e_hat + all_e_m_hat[:,left:left+n]) % 2
+                left += n+n_half
+            logical_e_hat = final_e_hat @ code_l.T %2
+            logical_err = ((obs_data + logical_e_hat) % 2).any(axis=1)
+            num_err = logical_err.astype(int).sum()
+            p_l = num_err / num_trials
+            p_l_per_round = 1 - (1 - p_l) ** (1 / num_repeat)
+            # may also use ** (1/(num_repeat-1))
+            # because the first round is for encoding, the next (num_repeat-1) rounds are syndrome measurements rounds
+            print("logical error per round:", p_l_per_round)
+            logical_errs[decoder.name] = p_l
+            logical_errs_per_round[decoder.name] = p_l_per_round
                     
-            print(f"Window {i}, flagged Errors: {num_flag_err}/{num_trials}")
+    elif method == 2: # use max_likelihood decoding
+        for decoder in decoders:
+            print(f">>> testing {decoder.name} >>>")
+            new_det_data = det_data.copy()
+            start_time = time.perf_counter()
+            all_e_hat = np.zeros((num_trials, n* (num_repeat +1)))
+            all_m_hat = np.zeros((num_trials, n_half*num_repeat))
+            decodingtime_list = []
+            
+            # 分窗口进行解码，提升效率
+            for i in range(num_win):
+                if i != num_win - 1:  # not the last round
+                    mat = np.hstack((code_h,np.identity(n_half)))
+                    detector_win = new_det_data[:,n_half*W*i:n_half*W*(i+1)]
+                    decoder.set_h(mat,[None],error_rate)
+                    for j in range(num_trials):
+                        syndrome = np.array([1 if item else 0 for item in detector_win[j]])
+                        if i != 0:
+                            syndrome = (syndrome + all_m_hat[j][n_half*W*(i-1):n_half*W*i]) % 2
+                        e_hat = decoder.decode(syndrome.astype(int))  # detector_win[j] is syndrome, len == m
+                        all_e_hat[j][n*W*i:n*W*(i+1)] = e_hat[:n*W]
+                        all_m_hat[j][n_half*i:n_half*(i+1)] = e_hat[n*W:]
+                else:  # last round
+                    mat = code_h
+                    detector_win = new_det_data[:,n_half*W*i:n_half*W*(i+1)]
+                    decoder.set_h(mat,[None],error_rate)
+                    for j in range(num_trials):
+                        syndrome = np.array([1 if item else 0 for item in detector_win[j]])
+                        if i != 0:
+                            syndrome = (syndrome + all_m_hat[j][n_half*W*(i-1):n_half*W*i]) % 2
+                        e_hat = decoder.decode(syndrome.astype(int))  # detector_win[j] is syndrome, len == m
+                        all_e_hat[j][n*W*i:n*W*(i+1)] = e_hat[:n*W]
+            final_e_hat = np.zeros((num_trials, n), dtype=int)
+            for i in range(num_win):
+                final_e_hat = (final_e_hat + all_e_hat[:,n*W*i:n*W*(i+1)]) % 2
+            # final_e_hat = all_e_hat[:,-n:]
+            logical_e_hat = final_e_hat @ code_l.T %2
+            logical_err = ((obs_data + logical_e_hat) % 2).any(axis=1)
+            num_err = logical_err.astype(int).sum()
+            p_l = num_err / num_trials
+            p_l_per_round = 1 - (1 - p_l) ** (1 / num_repeat)
+            # may also use ** (1/(num_repeat-1))
+            # because the first round is for encoding, the next (num_repeat-1) rounds are syndrome measurements rounds
+            print("logical error per round:", p_l_per_round)
+            logical_errs[decoder.name] = p_l
+            logical_errs_per_round[decoder.name] = p_l_per_round
+            
+    else:
+        for decoder in decoders:
+            print(f">>> testing {decoder.name} >>>")
+            total_e_hat = np.zeros((num_trials, num_col))
+            new_det_data = det_data.copy()
+            start_time = time.perf_counter()
+            top_left = 0
+            decodingtime_list = []
+            # 分窗口进行解码，提升效率
+            for i in range(num_win):
+                mat = chk_submats[i]
+                prior = prior_subvecs[i]
+                a = anchors[top_left]
+                bottom_right = min(top_left + W, len(anchors) - 1)
+                b = anchors[bottom_right]
+                if method == 0:  # not the last round
+                    c = anchors[top_left + F]  # commit region bottom right
+                # 判断当前窗口是否解码成功。每个窗口内解码num_trials次
+                elif i != num_win - 1:  # not the last round
+                    c = anchors[top_left + W - 1]
+                    if method == 1:
+                        c = (c[0], c[1] + n_half * 3) if z_basis else (c[0], c[1] + n)
+                
+                num_flag_err = 0
+                detector_win = new_det_data[:, a[0] : b[0]]
+                decoder.set_h(mat, prior, error_rate)
+                for j in range(num_trials):
+                    syndrome = np.array([1 if item else 0 for item in detector_win[j]])
+                    decoding_start_time = time.perf_counter()
+                    # print(f"detector_win[j] = {detector_win[j]}")
+                    # print(f"syndrome = {syndrome}")
+                    e_hat = decoder.decode(syndrome)  # detector_win[j] is syndrome, len == m
+                    decoding_end_time = time.perf_counter()
+                    decodingtime_list.append(decoding_end_time-decoding_start_time)
+                    # if shorten: print(f"pm: {bpd.min_pm}")
+                    is_flagged = ((mat @ e_hat + detector_win[j]) % 2).any()
+                    num_flag_err += is_flagged
+                    if i == num_win - 1:  # last window
+                        total_e_hat[j][a[1] : b[1]] = e_hat
+                    else:
+                        total_e_hat[j][a[1] : c[1]] = e_hat[: c[1] - a[1]]
+                        
+                print(f"Window {i}, flagged Errors: {num_flag_err}/{num_trials}")
 
-            new_det_data = (det_data + total_e_hat @ chk.T) % 2
-            top_left += F
+                new_det_data = (det_data + total_e_hat @ chk.T) % 2
+                top_left += F
 
-        end_time = time.perf_counter()
-        print("Elapsed time:", end_time - start_time)
+            end_time = time.perf_counter()
+            print("Elapsed time:", end_time - start_time)
 
-        flagged_err = ((det_data + total_e_hat @ chk.T) % 2).any(axis=1)
-        num_flagged_err = flagged_err.astype(int).sum()
-        print(f"Overall Flagged Errors: {num_flagged_err}/{num_trials}")
-        logical_err = ((obs_data + total_e_hat @ obs.T) % 2).any(axis=1)
-        # num_err = np.logical_or(flagged_err, logical_err).astype(int).sum()
-        num_err = logical_err.astype(int).sum()
-        print(f"Logical Errors: {num_err}/{num_trials}")
-        p_l = num_err / num_trials
-        p_l_per_round = 1 - (1 - p_l) ** (1 / num_repeat)
-        # may also use ** (1/(num_repeat-1))
-        # because the first round is for encoding, the next (num_repeat-1) rounds are syndrome measurements rounds
-        print("logical error per round:", p_l_per_round)
-        print(f">>> end testing >>>")
-        logical_errs[decoder.name] = p_l
-        logical_errs_per_round[decoder.name] = p_l_per_round
-        decodingtime[decoder.name] = np.mean(decodingtime_list)
+            flagged_err = ((det_data + total_e_hat @ chk.T) % 2).any(axis=1)
+            num_flagged_err = flagged_err.astype(int).sum()
+            print(f"Overall Flagged Errors: {num_flagged_err}/{num_trials}")
+            logical_err = ((obs_data + total_e_hat @ obs.T) % 2).any(axis=1)
+            num_err = np.logical_or(flagged_err, logical_err).astype(int).sum()
+            # num_err = logical_err.astype(int).sum()
+            print(f"Logical Errors: {num_err}/{num_trials}")
+            p_l = num_err / num_trials
+            p_l_per_round = 1 - (1 - p_l) ** (1 / num_repeat)
+            # may also use ** (1/(num_repeat-1))
+            # because the first round is for encoding, the next (num_repeat-1) rounds are syndrome measurements rounds
+            print("logical error per round:", p_l_per_round)
+            print(f">>> end testing >>>")
+            logical_errs[decoder.name] = p_l
+            logical_errs_per_round[decoder.name] = p_l_per_round
+            decodingtime[decoder.name] = np.mean(decodingtime_list)
         
     return logical_errs, logical_errs_per_round

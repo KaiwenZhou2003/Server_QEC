@@ -1,5 +1,6 @@
 import numpy as np
 from .decoder import Decoder
+from .bpdecoders import BP_decoder
 import cvxpy as cp
 from z3 import And,If,Optimize,Xor,Bool,sat
 import ray
@@ -158,6 +159,7 @@ def calculate_trans_error(our_result, col_trans):
 class min_sum_decoder:
     def __init__(self,hz,p):
         self.hz = hz
+        self.p = p
         pass
     def count_conflicts(self,syndrome,error):
         hzg = (self.hz @ error)%2
@@ -238,6 +240,69 @@ class min_sum_decoder:
             return solution
         else:
             return np.zeros(n,dtype=int)
+    def greedy_decode_approx(self, syndrome, order=3):
+        """
+        近似求解的贪心算法，只求出threshold个1就退出
+        syndrom = [s', 0]
+        """
+        n = len(self.hz[0])  # 这里的hz是hstack[B, I]，所以这里的n实际上是n-m
+        cur_guess = np.zeros(n, dtype=int)
+        cur_conflicts = self.count_conflicts(syndrome, cur_guess)
+
+        threshold = 2
+
+        for k in range(1, order + 1):
+            best_conflicts = cur_conflicts
+            best_guess = cur_guess
+
+            max_conflicts = 0
+            max_conficlits_idx = -1
+            for i in range(n):
+                if cur_guess[i] == 0:
+                    try_guess = cur_guess.copy()
+                    try_guess[i] = 1
+                    try_conflicts = self.count_conflicts(syndrome, try_guess)
+                    if try_conflicts < best_conflicts:
+                        best_conflicts = try_conflicts
+                        best_guess = try_guess
+                        # if int(np.sum(best_guess)) >= threshold:
+                        #     return best_guess
+                    else:
+                        if try_conflicts > max_conflicts:
+                            max_conflicts = try_conflicts
+                            max_conficlits_idx = i
+
+            best_guess[max_conficlits_idx] = 2
+            # 如果当前order没有找到更好的解，则停止
+            if best_conflicts == cur_conflicts:
+                break
+            else:
+                cur_conflicts = best_conflicts
+                cur_guess = best_guess
+
+        return best_guess
+    
+    def our_bp_decode(self, syndrome, **kwargs):
+        """
+        对于[B, I]g=[s', 0]，先调用greedy_decoder，找到一个近似解，然后用bp_decoder进行迭代
+        """
+        from ldpc import bp_decoder, bposd_decoder
+
+        bp_decoder = bp_decoder(
+            self.hz,
+            error_rate=self.p,
+            channel_probs=[None],
+            max_iter=10,
+            bp_method="ms",  # minimum sum
+            ms_scaling_factor=0,
+        )
+
+        bp_decoder.decode(syndrome)
+        our_result = bp_decoder.bp_decoding
+
+        # print(f"greedy g HW = {np.sum(g)}, bp g HW = {np.sum(our_result)}")
+        return our_result
+
 
 
     def greedy_decode(self,syndrome,order=6,frozen_idx=[]):
@@ -311,16 +376,22 @@ class guass_decoder(Decoder):
         self.B = hz_trans[:, len(hz_trans) : len(hz_trans[0])]
         # print("density of B:",np.sum(self.B)/(len(self.B)*len(self.B[0])))
         print("row density of B:", np.sum(self.B, axis=0))
-        print(f"B shape = ({len(self.B)}, {len(self.B[0])})")
-        weights = [
-            np.log((1 - p) / p) for i in range(self.hz.shape[1])
-        ]  # 初始每个qubit的对数似然比
-        assert np.all([w > 0 for w in weights])
-        Ig = np.identity(len(self.hz_trans[0]) - len(self.hz_trans))
-        self.BvIg = np.vstack([self.B, Ig])
-        self.ms_decoder = min_sum_decoder(self.BvIg, self.error_rate)
+        if np.mean(np.sum(self.B, axis=0)) > 5:
+            print("B is dense, may cause low decoding performance, use bp decoder instead")
+            bpdecoder = BP_decoder()
+            bpdecoder.set_h(self.hz,self.prior, self.p)
+            self.decode = bpdecoder.decode
+        else:
+            print(f"B shape = ({len(self.B)}, {len(self.B[0])})")
+            weights = [
+                np.log((1 - p) / p) for i in range(self.hz.shape[1])
+            ]  # 初始每个qubit的对数似然比
+            assert np.all([w > 0 for w in weights])
+            Ig = np.identity(len(self.hz_trans[0]) - len(self.hz_trans))
+            self.BvIg = np.vstack([self.B, Ig])
+            self.ms_decoder = min_sum_decoder(self.BvIg, self.error_rate)
 
-    def decode(self, syndrome,order=3):
+    def decode(self, syndrome,order=5):
         syndrome_copy = calculate_tran_syndrome(
             syndrome.copy(), self.syndrome_transpose
         )
@@ -331,8 +402,8 @@ class guass_decoder(Decoder):
                 np.zeros(len(self.hz_trans[0]) - len(self.hz_trans), dtype=int),
             ]
         )
-        g,_= self.ms_decoder.greedy_decode(g_syn, order=order)  # 传入g_syn = [s', 0]
-        # g = self.ms_decoder.our_bp_decode(g_syn)
+        # g,_= self.ms_decoder.greedy_decode(g_syn, order=order)  # 传入g_syn = [s', 0]
+        g = self.ms_decoder.our_bp_decode(g_syn)
         f = (np.dot(self.B, g) + syndrome_copy) % 2
         our_result = np.hstack((f, g))
         # assert ((self.hz_trans @ our_result) % 2 == syndrome_copy).all()

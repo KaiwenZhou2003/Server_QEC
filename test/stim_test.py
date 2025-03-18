@@ -8,7 +8,7 @@ from qldpcdecoder.decoupleddecoder import ReShapeBBDecoder
 from functools import reduce
 import numpy as np
 from rich.pretty import pprint
-p = 0.003
+p = 0.01
 css_code = gen_BB_code(72)
 # A = reduce(lambda x, y: x + y, css_code.A_list).toarray()
 # with open("results/A.txt", "w") as file:
@@ -36,5 +36,5 @@ gaussdecoder = guass_decoder()
 
 # reshapeddecoder = ReShapeBBDecoder(,css_code.lz,A,B)
 
-pprint(circuit_level_simulation(css_code,p,[bposddecoder,bpdecoder,gaussdecoder],num_trials=1000,num_repeat=2))
+pprint(circuit_level_simulation(css_code,p,[bposddecoder,bpdecoder,gaussdecoder],num_trials=1000,num_repeat=5,method=0,plot=True,W=1))
 

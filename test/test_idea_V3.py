@@ -71,47 +71,7 @@ class min_sum_decoder:
 
         return best_guess
 
-    def greedy_decode_approx(self, syndrome, order=6):
-        """
-        近似求解的贪心算法，只求出threshold个1就退出
-        syndrom = [s', 0]
-        """
-        n = len(self.hz[0])  # 这里的hz是hstack[B, I]，所以这里的n实际上是n-m
-        cur_guess = np.zeros(n, dtype=int)
-        cur_conflicts = self.count_conflicts(syndrome, cur_guess)
 
-        threshold = 2
-
-        for k in range(1, order + 1):
-            best_conflicts = cur_conflicts
-            best_guess = cur_guess
-
-            max_conflicts = 0
-            max_conficlits_idx = -1
-            for i in range(n):
-                if cur_guess[i] == 0:
-                    try_guess = cur_guess.copy()
-                    try_guess[i] = 1
-                    try_conflicts = self.count_conflicts(syndrome, try_guess)
-                    if try_conflicts < best_conflicts:
-                        best_conflicts = try_conflicts
-                        best_guess = try_guess
-                        # if int(np.sum(best_guess)) >= threshold:
-                        #     return best_guess
-                    else:
-                        if try_conflicts > max_conflicts:
-                            max_conflicts = try_conflicts
-                            max_conficlits_idx = i
-
-            best_guess[max_conficlits_idx] = 2
-            # 如果当前order没有找到更好的解，则停止
-            if best_conflicts == cur_conflicts:
-                break
-            else:
-                cur_conflicts = best_conflicts
-                cur_guess = best_guess
-
-        return best_guess
 
     # 求解我们堆叠的方程，我们自己的bp decoder
     def our_bp_decode(self, syndrome, **kwarg):
