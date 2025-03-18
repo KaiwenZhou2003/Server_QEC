@@ -292,7 +292,7 @@ class min_sum_decoder:
             self.hz,
             error_rate=self.p,
             channel_probs=[None],
-            max_iter=10,
+            max_iter=100,
             bp_method="ms",  # minimum sum
             ms_scaling_factor=0,
         )
@@ -402,10 +402,16 @@ class guass_decoder(Decoder):
                 np.zeros(len(self.hz_trans[0]) - len(self.hz_trans), dtype=int),
             ]
         )
-        # g,_= self.ms_decoder.greedy_decode(g_syn, order=order)  # 传入g_syn = [s', 0]
-        g = self.ms_decoder.our_bp_decode(g_syn)
-        f = (np.dot(self.B, g) + syndrome_copy) % 2
-        our_result = np.hstack((f, g))
+        g_greedy,_= self.ms_decoder.greedy_decode(g_syn, order=order)  # 传入g_syn = [s', 0]
+        g_bp = self.ms_decoder.our_bp_decode(g_syn)
+        f_greedy = (np.dot(self.B, g_greedy) + syndrome_copy) % 2
+        greedy_result = np.hstack((f_greedy, g_greedy))
+        f_bp = (np.dot(self.B, g_bp) + syndrome_copy) % 2
+        bp_result = np.hstack((f_bp, g_bp))
+        if bp_result.sum() <= greedy_result.sum():
+            our_result = bp_result
+        else:
+            our_result = greedy_result
         # assert ((self.hz_trans @ our_result) % 2 == syndrome_copy).all()
         trans_results = calculate_original_error(our_result, self.col_trans)
         # assert ((self.hz @ trans_results) % 2 == syndrome).all(), trans_results

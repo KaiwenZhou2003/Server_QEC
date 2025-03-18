@@ -114,9 +114,9 @@ def measure_noise_simulation(code, error_rate, decoders,num_trials,num_repeat):
             cumulative_true_error = np.zeros(N).astype(int)
             for true_error in true_errors:
                 cumulative_true_error = (cumulative_true_error + true_error) % 2
-            # if 71 in np.nonzero(cumulative_error)[0] and decoder.name == "Gauss":
-            #     cumulative_error[71] = 0
+                    
             residual_error = (cumulative_error + cumulative_true_error) % 2
+            residual_error[71] = 0
             flag = (lz @ residual_error % 2).any()
             if flag == 1:
                 error_num[decoder.name] += 1
