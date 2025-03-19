@@ -10,7 +10,7 @@ import numpy as np
 from rich.pretty import pprint
 np.random.seed(1234561)
 p = 0.005
-css_code = gen_BB_code(144)
+css_code = gen_BB_code(72)
 # css_code,_,_ = gen_HP_ring_code(7,7)
 # A = reduce(lambda x, y: x + y, css_code.A_list).toarray()
 # with open("results/A.txt", "w") as file:
@@ -35,8 +35,7 @@ bposddecoder = BPOSD_decoder()
 
 bpdecoder = BP_decoder()
 gaussdecoder = guass_decoder()
+reshapeddecoder = ReShapeBBDecoder(css_code,p)
 
-# reshapeddecoder = ReShapeBBDecoder(,css_code.lz,A,B)
-
-pprint(measure_noise_simulation(css_code,p,[bposddecoder,bpdecoder,gaussdecoder],num_trials=1000,num_repeat=5))
+pprint(measure_noise_simulation(css_code,p,[bposddecoder,bpdecoder,gaussdecoder,reshapeddecoder],num_trials=1000,num_repeat=5))
 

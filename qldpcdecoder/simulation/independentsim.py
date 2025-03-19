@@ -100,6 +100,8 @@ def measure_noise_simulation(code, error_rate, decoders,num_trials,num_repeat):
                 
                 if j == 0:  # not the last round
                     correction = decoder.decode(syndrome.astype(int))
+                    if np.sum(correction) > np.sum(error)+ np.sum(measurement_error):
+                        print(f"correction error {np.sum(correction)-np.sum(error)-np.sum(measurement_error)}")
                     pred_e_ms.append(correction)
                 else:  # the last round
                     new_syndrome = (syndrome + pred_e_ms[-1][N:]) %2
@@ -116,7 +118,7 @@ def measure_noise_simulation(code, error_rate, decoders,num_trials,num_repeat):
                 cumulative_true_error = (cumulative_true_error + true_error) % 2
                     
             residual_error = (cumulative_error + cumulative_true_error) % 2
-            residual_error[71] = 0
+            residual_error[int(len(cumulative_error)/2-1)] = 0
             flag = (lz @ residual_error % 2).any()
             if flag == 1:
                 error_num[decoder.name] += 1

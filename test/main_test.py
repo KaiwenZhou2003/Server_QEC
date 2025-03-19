@@ -34,7 +34,7 @@ bposddecoder = BPOSD_decoder()
 bpdecoder = BP_decoder()
 gaussdecoder = guass_decoder()
 
-# reshapeddecoder = ReShapeBBDecoder(css_code.hx,p,css_code.lz,A,B)
+
 
 pprint(circuit_level_simulation(css_code,p,[bposddecoder,bpdecoder,gaussdecoder],num_trials=1000))
 

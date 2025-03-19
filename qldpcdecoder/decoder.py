@@ -4,3 +4,5 @@ class Decoder:
         pass
     def decode(self,syndrome):
         pass
+    def set_h(self,*args,**kwargs):
+        pass

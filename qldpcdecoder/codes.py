@@ -684,7 +684,11 @@ def gen_BB_code(N):
     Returns:
         _type_: _description_
     """
-    if N == 72:
+    if N == 32:
+        bb_code = create_bivariate_bicycle_codes(
+            4, 4, [3], [1, 2], [1, 2], [3]
+        )  # 72
+    elif N == 72:
         bb_code = create_bivariate_bicycle_codes(
             6, 6, [3], [1, 2], [1, 2], [3]
         )  # 72
@@ -719,5 +723,17 @@ def gen_BB_code(N):
 def gen_HP_ring_code(d1,d2):
     code1 = ring_code(d1)
     code2 = ring_code(d2)
+    hg_code = hypergraph_product(code1, code2)
+    return hg_code, code1, code2
+
+def gen_HP_rep_code(d1,d2):
+    code1 = rep_code(d1)
+    code2 = rep_code(d2)
+    hg_code = hypergraph_product(code1, code2)
+    return hg_code, code1, code2
+
+def gen_HP_hamming_code(d1,d2):
+    code1 = hamming_code(d1)
+    code2 = hamming_code(d2)
     hg_code = hypergraph_product(code1, code2)
     return hg_code, code1, code2
