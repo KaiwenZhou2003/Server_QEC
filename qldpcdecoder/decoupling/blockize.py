@@ -21,7 +21,7 @@ def determinant(matrix):
             det += ((-1) ** col) * matrix[0][col] * sub_det
         return det
 
-def solve_flexible_block_transform(H_np, row_partition, col_partition):
+def solve_flexible_block_transform(H_np, row_partition, col_partition, equal_blocks= False):
     """
     允许自定义行和列分块，求解变换矩阵 T，使得 TH 的前 m=sum(col_partition) 列满足分块约束。
     
@@ -37,11 +37,9 @@ def solve_flexible_block_transform(H_np, row_partition, col_partition):
     """
     l, n = H_np.shape
     m = sum(col_partition)
-    print(m)
     assert len(row_partition) == len(col_partition), "行分片与列分片长度需一致"
     k = n -m
     p = l - sum(row_partition)
-    print(k)
     # 转换 H 为 Z3 布尔矩阵
     H = [[BoolVal(bool(H_np[i,j])) for j in range(n)] for i in range(l)]
     
@@ -76,18 +74,31 @@ def solve_flexible_block_transform(H_np, row_partition, col_partition):
         THC.append(THCrow)
         
     current_row, current_col = 0, 0
+    anchors = []
     for r, c in zip(row_partition, col_partition):
-        # 当前列不能表示为其他列的线性组合（XOR）
         for i in range(current_row, current_row + r):
             for j in range(current_col + c, n-k):
                 opt.add(THC[i][j] == False)
         for i in range(current_row + r,l-p):
             for j in range(current_col, current_col + c):
                 opt.add(THC[i][j] == False)
+        anchors.append((current_row, current_col))
         current_row += r
         current_col += c
-
-
+    current_row, current_col = 0, 0
+    if equal_blocks:
+        # 要求每一个块都相同
+        assert np.unique(row_partition).size == 1, "每一块的行数必须相同"
+        assert np.unique(col_partition).size == 1, "每一块的列数必须相同"
+        row_size = row_partition[0]
+        col_size = col_partition[0]
+        for i in range(row_size):
+            for j in range(col_size):
+               first_anchor = anchors[0]
+               for anchor in anchors[1:]:
+                   opt.add(THC[first_anchor[0]+i][first_anchor[1]+j] == THC[anchor[0]+i][anchor[1]+j])
+    
+    print("start solving")
     # 求解并提取结果
     if opt.check() == sat:
         model = opt.model()

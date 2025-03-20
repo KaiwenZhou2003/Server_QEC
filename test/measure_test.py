@@ -8,7 +8,7 @@ from qldpcdecoder.decoupleddecoder import ReShapeBBDecoder
 from functools import reduce
 import numpy as np
 from rich.pretty import pprint
-np.random.seed(1234561)
+np.random.seed(12561)
 p = 0.005
 css_code = gen_BB_code(72)
 # css_code,_,_ = gen_HP_ring_code(7,7)
@@ -36,6 +36,6 @@ bposddecoder = BPOSD_decoder()
 bpdecoder = BP_decoder()
 gaussdecoder = guass_decoder()
 reshapeddecoder = ReShapeBBDecoder(css_code,p)
-
-pprint(measure_noise_simulation(css_code,p,[bposddecoder,bpdecoder,gaussdecoder,reshapeddecoder],num_trials=1000,num_repeat=5))
+reshapedgaussdecoder = ReShapeBBDecoder(css_code,p,decoders_mode='greedy')
+pprint(measure_noise_simulation(css_code,p,[bposddecoder,bpdecoder,reshapeddecoder,reshapedgaussdecoder,gaussdecoder],num_trials=500,num_repeat=5))
 

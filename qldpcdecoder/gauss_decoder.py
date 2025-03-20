@@ -355,8 +355,8 @@ class min_sum_decoder:
 
 class guass_decoder(Decoder):
     def __init__(self, **kwargs):
-        super().__init__("Gauss")
-
+        super().__init__("Gauss_"+str(kwargs.get("mode", "both")))
+        self.mode = kwargs.get("mode", "both")
         pass
 
     def set_h(self, code_h,prior,p, **kwargs):
@@ -402,16 +402,23 @@ class guass_decoder(Decoder):
                 np.zeros(len(self.hz_trans[0]) - len(self.hz_trans), dtype=int),
             ]
         )
-        g_greedy,_= self.ms_decoder.greedy_decode(g_syn, order=order)  # 传入g_syn = [s', 0]
-        g_bp = self.ms_decoder.our_bp_decode(g_syn)
-        f_greedy = (np.dot(self.B, g_greedy) + syndrome_copy) % 2
-        greedy_result = np.hstack((f_greedy, g_greedy))
-        f_bp = (np.dot(self.B, g_bp) + syndrome_copy) % 2
-        bp_result = np.hstack((f_bp, g_bp))
-        if bp_result.sum() <= greedy_result.sum():
+        if self.mode == "bp" or self.mode == "both":
+            g_bp = self.ms_decoder.our_bp_decode(g_syn)
+            f_bp = (np.dot(self.B, g_bp) + syndrome_copy) % 2
+            bp_result = np.hstack((f_bp, g_bp))
+        if self.mode == "greedy" or self.mode == "both":
+            g_greedy, _ = self.ms_decoder.greedy_decode(g_syn, order=order)
+            f_greedy = (np.dot(self.B, g_greedy) + syndrome_copy) % 2
+            greedy_result = np.hstack((f_greedy, g_greedy))
+        if self.mode == "bp":
             our_result = bp_result
-        else:
+        elif self.mode == "greedy":
             our_result = greedy_result
+        else:
+            if bp_result.sum() <= greedy_result.sum():
+                our_result = bp_result
+            else:
+                our_result = greedy_result
         # assert ((self.hz_trans @ our_result) % 2 == syndrome_copy).all()
         trans_results = calculate_original_error(our_result, self.col_trans)
         # assert ((self.hz @ trans_results) % 2 == syndrome).all(), trans_results

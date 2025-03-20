@@ -4,11 +4,13 @@ from .basis_compute import compute_basis_complement
 import numpy as np
 import os
 class ReShapeBBDecoder(Decoder):
-    def __init__(self, code,p):
-        super().__init__("Reshape_BB_Decoder")
+    def __init__(self, code,p, **kwargs):
+        super().__init__("Reshape_BB_Decoder_"+kwargs.get("decoders_mode", "both"))
         self.code = code
         self.p = p
-        self.decoders = []
+        self.Adecoders = []
+        self.Bdecoders = []
+        self.decoders_mode = kwargs.get("decoders_mode", "both")
         self.load_decoupled_matrix()
     
     def load_decoupled_matrix(self):
@@ -21,17 +23,15 @@ class ReShapeBBDecoder(Decoder):
         self.A_row_window = np.load(pathdir+"A_row_part.npy")
         self.A_col_window = np.load(pathdir+"A_col_part.npy")
         ## find the block window
-        self.A_blocks = []
         self.A_anchors = []
         start_row = 0
         start_col = 0
         
         for r,c in zip(self.A_row_window,self.A_col_window):
             block = self.A_THC[start_row:start_row+r,start_col:start_col+c]
-            self.A_blocks.append(block)
-            self.decoders.append(guass_decoder())
+            self.Adecoders.append(guass_decoder(mode=self.decoders_mode))
             h = np.hstack((block,np.identity(block.shape[0])))
-            self.decoders[-1].set_h(h,prior=[None],p=self.p)
+            self.Adecoders[-1].set_h(h,prior=[None],p=self.p)
             self.A_anchors.append([(start_row,start_col),(start_row+r,start_col+c)])
             start_row += r
             start_col += c
@@ -41,42 +41,146 @@ class ReShapeBBDecoder(Decoder):
         self.B_THC = np.load(pathdir+"B_THC.npy")
         self.B_row_window = np.load(pathdir+"B_row_part.npy")
         self.B_col_window = np.load(pathdir+"B_col_part.npy")
-        self.B_blocks = []
         self.B_anchors = []
         start_row = 0
         start_col = 0
         for r,c in zip(self.B_row_window,self.B_col_window):
-            self.B_blocks.append(self.B_THC[start_row:start_row+r,start_col:start_col+c])
+            block = self.B_THC[start_row:start_row+r,start_col:start_col+c]
             self.B_anchors.append([(start_row,start_col),(start_row+r,start_col+c)])
-            self.decoders.append(guass_decoder())
-            block = self.B_blocks[-1]
+            self.Bdecoders.append(guass_decoder(mode=self.decoders_mode))
             h = np.hstack((block,np.identity(block.shape[0])))
-            self.decoders[-1].set_h(h,prior=[None],p=self.p)
+            self.Bdecoders[-1].set_h(h,prior=[None],p=self.p)
             start_row += r
             start_col += c
         
     def decode(self, syndrome):
-        return self.exhaustive_decode(syndrome)
+        # return self.exhaustive_decode(syndrome)
+        return self.adaptiveSearch(syndrome, 3)[0]
 
     def reshape_decode(self, l_syndrome, r_syndrome):
         corrections = []
         left_syndrome = self.A_T @ l_syndrome
-        for i, (anchor, block) in enumerate(zip(self.A_anchors, self.A_blocks)):
+        for i, anchor in enumerate(self.A_anchors):
             syndrome_block = left_syndrome[anchor[0][0]:anchor[1][0]]
-            error_correction = self.decoders[i].decode(syndrome_block)
+            error_correction = self.Adecoders[i].decode(syndrome_block)
             corrections.append(error_correction[:anchor[1][1]-anchor[0][1]])
         left_correction = np.hstack(corrections)
-        left_correction = self.A_C.T @ left_correction
+        left_correction = self.A_C @ left_correction
         corrections = []
         right_syndrome = self.B_T @ r_syndrome
-        for j, (anchor, block) in enumerate(zip(self.B_anchors, self.B_blocks)):
+        for j, anchor in enumerate(self.B_anchors):
             syndrome_block = right_syndrome[anchor[0][0]:anchor[1][0]]
-            error_correction = self.decoders[len(self.A_blocks)+j].decode(syndrome_block)
+            error_correction = self.Bdecoders[j].decode(syndrome_block)
             corrections.append(error_correction[:anchor[1][1]-anchor[0][1]])
         right_correction = np.hstack(corrections)
-        right_correction = self.B_C.T @ right_correction
+        
+        right_correction = self.B_C @ right_correction
         syn_correction = np.hstack((left_correction, right_correction))
         return syn_correction
+    def decode_right(self, syndrome):
+        """ 解码右半部分 """
+        corrections = []
+        right_syndrome = self.B_T @ syndrome
+        for j, anchor in enumerate(self.B_anchors):
+            syndrome_block = right_syndrome[anchor[0][0]:anchor[1][0]]
+            error_correction = self.Bdecoders[j].decode(syndrome_block)
+            corrections.append(error_correction[:anchor[1][1]-anchor[0][1]])
+        right_correction = np.hstack(corrections)
+        right_correction = self.B_C @ right_correction
+        return right_correction
+
+    def decode_left(self, syndrome):
+        """ 解码左半部分 """
+        corrections = []
+        left_syndrome = self.A_T @ syndrome
+        for i, anchor in enumerate(self.A_anchors):
+            syndrome_block = left_syndrome[anchor[0][0]:anchor[1][0]]
+            error_correction = self.Adecoders[i].decode(syndrome_block)
+            corrections.append(error_correction[:anchor[1][1]-anchor[0][1]])
+        left_correction = np.hstack(corrections)
+        left_correction = self.A_C @ left_correction
+        return left_correction
+    
+    def count_conflicts(self, syndrome, correction):
+        """ 计算修正后的错误分布中有多少个错误 """
+        return np.sum(syndrome ^ (self.code.hx @ correction) % 2) + np.sum(correction)
+    
+    def adaptiveSearch(self, syndrome, order):
+        """ 自适应搜索
+        对于 AL + BR = S, 先针对 L 从 0 到 order 进行贪心搜索， 再针对R 进行解码
+        另一种情况，先针对 R 从 0 到 order 进行贪心搜索， 再针对L 进行解码
+        两种情况分别并行计算，最后合并结果
+        """
+        m,n = self.code.hx.shape
+        Apart = self.code.hx[:, :n//2]
+        Bpart = self.code.hx[:, n//2:]
+        ## gredy search for L
+        cur_guess = np.zeros(n//2,dtype=int)
+        cur_right_syndrome = syndrome ^ (Apart @ cur_guess) % 2
+        cur_right_correction = self.decode_right(cur_right_syndrome)
+        cur_correction = np.hstack((cur_guess, cur_right_correction))
+        cur_conflicts = self.count_conflicts(syndrome,cur_correction)
+        best_conflicts = cur_conflicts
+        best_correction = cur_correction
+        best_guess = cur_guess.copy()
+        for _ in range(1,order+1):
+            for i in range(n//2):
+                if cur_guess[i] == 0:
+                    try_guess = cur_guess.copy()
+                    try_guess[i] = 1
+                    try_right_syndrome = syndrome ^ ((Apart @ try_guess) %2)
+                    try_right_correction = self.decode_right(try_right_syndrome)
+                    try_correction = np.hstack((try_guess, try_right_correction))
+                    try_conflicts = self.count_conflicts(syndrome,try_correction)
+                    if try_conflicts < best_conflicts:
+                        best_conflicts = try_conflicts
+                        best_correction = try_correction
+                        best_guess = try_guess.copy()
+            if best_conflicts == cur_conflicts:
+                break
+            else:
+                cur_conflicts = best_conflicts
+                cur_guess = best_guess
+        
+        best_correction_left = best_correction
+        best_conflicts_left = best_conflicts
+        ## greddy search for R
+        cur_guess = np.zeros(n//2,dtype=int)
+        cur_left_syndrome = syndrome ^ (Bpart @ cur_guess) % 2
+        cur_left_correction = self.decode_left(cur_left_syndrome)
+        cur_correction = np.hstack((cur_left_correction, cur_guess))
+        cur_conflicts = self.count_conflicts(syndrome,cur_correction)
+        best_conflicts = cur_conflicts
+        best_correction = cur_correction
+        best_guess = cur_guess.copy()
+        for _ in range(1,order+1):
+            for i in range(n//2):
+                if cur_guess[i] == 0:
+                    try_guess = cur_guess.copy()
+                    try_guess[i] = 1
+                    try_left_syndrome = syndrome ^ ((Bpart @ try_guess) %2)
+                    try_left_correction = self.decode_left(try_left_syndrome)
+                    try_correction = np.hstack((try_left_correction, try_guess))
+                    try_conflicts = self.count_conflicts(syndrome,try_correction)
+                    if try_conflicts < best_conflicts:
+                        best_conflicts = try_conflicts
+                        best_correction = try_correction
+                        best_guess = try_guess.copy()
+            if best_conflicts == cur_conflicts:
+                break
+            else:
+                cur_conflicts = best_conflicts
+                cur_guess = best_guess
+        ## select the best solution
+        if best_conflicts_left < best_conflicts:
+            best_correction = best_correction_left
+            best_conflicts = best_conflicts_left
+            
+        err_measure = (self.code.hx @ best_correction) % 2 ^ syndrome
+        err_correction = np.hstack((best_correction, err_measure))
+        return err_correction, best_conflicts
+       
+        
     
     def exhaustive_decode(self, syndrome):
         """exhaustive search"""
