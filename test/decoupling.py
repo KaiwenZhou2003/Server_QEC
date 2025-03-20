@@ -13,7 +13,7 @@ from qldpcdecoder.decoupling.blockize import solve_flexible_block_transform
 
 np.random.seed(1234561)
 
-css_code = gen_BB_code(144)
+css_code = gen_BB_code(756)
 pathdir = "results/"+css_code.name+"/"
 if not os.path.exists(pathdir):
     os.makedirs(pathdir)

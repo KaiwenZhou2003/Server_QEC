@@ -10,7 +10,7 @@ import numpy as np
 from rich.pretty import pprint
 np.random.seed(12561)
 p = 0.005
-css_code = gen_BB_code(72)
+css_code = gen_BB_code(144)
 # css_code,_,_ = gen_HP_ring_code(7,7)
 # A = reduce(lambda x, y: x + y, css_code.A_list).toarray()
 # with open("results/A.txt", "w") as file:

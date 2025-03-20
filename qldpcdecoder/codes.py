@@ -679,10 +679,10 @@ def gen_BB_code(N):
     """ gen
 
     Args:
-        N (_type_): _description_
+        N (int): the number of bits in the code
 
     Returns:
-        _type_: _description_
+        css_code: the bivariate bicycle code
     """
     if N == 32:
         bb_code = create_bivariate_bicycle_codes(
