@@ -3,6 +3,8 @@ from .decoder import Decoder
 from .basis_compute import compute_basis_complement
 import numpy as np
 import os
+import subprocess
+
 class ReShapeBBDecoder(Decoder):
     def __init__(self, code,p, **kwargs):
         super().__init__("Reshape_BB_Decoder_"+kwargs.get("decoders_mode", "both"))
@@ -16,7 +18,14 @@ class ReShapeBBDecoder(Decoder):
     def load_decoupled_matrix(self):
         pathdir = "results/"+self.code.name+"/"
         if not os.path.exists(pathdir):
-            print("No decoupled matrix found, please run decouple matrix first")
+            print("No decoupled matrix found, try runing python test/decouplingrule.py")
+            ## runing the python test/decouplingrule.py in the terminal to generate the decoupled matrix
+            result = subprocess.run(['python', 'test/decouplingrule.py'], capture_output=True, text=True)
+            print(result.stdout)
+            print(result.stderr)
+            if not os.path.exists(pathdir):
+                raise FileNotFoundError("No decoupled matrix found, please check the code or run the test/decouplingrule.py")
+
         self.A_T = np.load(pathdir+"A_T.npy")
         self.A_C = np.load(pathdir+"A_C.npy")
         self.A_THC = np.load(pathdir+"A_THC.npy")
