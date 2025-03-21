@@ -3,15 +3,15 @@ from qldpcdecoder.codes import gen_BB_code, gen_HP_ring_code
 from qldpcdecoder.bpdecoders import BPOSD_decoder, BP_decoder
 from qldpcdecoder.simulation.independentsim import measure_noise_simulation,independentnoise_simulation
 from qldpcdecoder.simulation.bbcodesim import circuit_level_simulation
-from qldpcdecoder.gauss_decoder import guass_decoder
-from qldpcdecoder.decoupleddecoder import DecoupledDecoder
+from qldpcdecoder.sparsegauss_decoder import guass_decoder
+from qldpcdecoder.sparsedecoupleddecoder import DecoupledDecoder
 from functools import reduce
 import numpy as np
 from rich.pretty import pprint
 np.random.seed(12561)
-p = 0.005
-# css_code = gen_BB_code(144)
-css_code = gen_HP_ring_code(7,7)
+p = 0.001
+css_code = gen_BB_code(144)
+# css_code = gen_HP_ring_code(7,7)
 # A = reduce(lambda x, y: x + y, css_code.A_list).toarray()
 # with open("results/A.txt", "w") as file:
 #     for row in A:
@@ -37,5 +37,5 @@ bpdecoder = BP_decoder()
 gaussdecoder = guass_decoder()
 reshapeddecoder = DecoupledDecoder(css_code,p)
 reshapedgaussdecoder = DecoupledDecoder(css_code,p,decoders_mode='greedy')
-pprint(measure_noise_simulation(css_code,p,[bposddecoder,bpdecoder,reshapeddecoder,reshapedgaussdecoder,gaussdecoder],num_trials=10000,num_repeat=5))
+pprint(measure_noise_simulation(css_code,p,[reshapeddecoder,gaussdecoder,reshapedgaussdecoder,bposddecoder,bpdecoder],num_trials=10000,num_repeat=5))
 

@@ -5,7 +5,7 @@
 """Utility functions and layers for the FEC package."""
 
 import numpy as np
-
+import warnings
 
 def bin2int(arr):
     """Convert binary array to integer.
