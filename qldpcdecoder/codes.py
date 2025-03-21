@@ -61,7 +61,7 @@ class css_code:  # a refactored version of Roffe's package
             self.B_list = kwargs.get('B_list',[])
             self.A_matrixs = kwargs.get('A_matrixs',[])
             self.B_matrixs = kwargs.get('B_matrixs',[])
-        elif self.codetype.lower() == "hp":
+        elif self.codetype.lower() == "hg":
             self.h1 = kwargs.get('h1',None)
             self.h2 = kwargs.get('h2',None)
         self.name = f"{name_prefix}_n{self.N}_k{self.K}" if name is None else name
@@ -143,7 +143,7 @@ def hypergraph_product(h1, h2, name=None):
     hz1 = kron(identity(n1, dtype=int), h2)
     hz2 = kron(h1.T, identity(m2, dtype=int))
     hz = hstack([hz1, hz2]).toarray()
-    return css_code(hx, hz, name=name, name_prefix="HP", h1 =h1,h2 =h2)
+    return css_code(hx, hz, name=name, name_prefix="HG", h1 =h1.toarray(),h2 =h2.toarray())
 
 def hamming_code(rank):
     """
@@ -724,16 +724,16 @@ def gen_HP_ring_code(d1,d2):
     code1 = ring_code(d1)
     code2 = ring_code(d2)
     hg_code = hypergraph_product(code1, code2)
-    return hg_code, code1, code2
+    return hg_code
 
 def gen_HP_rep_code(d1,d2):
     code1 = rep_code(d1)
     code2 = rep_code(d2)
     hg_code = hypergraph_product(code1, code2)
-    return hg_code, code1, code2
+    return hg_code
 
 def gen_HP_hamming_code(d1,d2):
     code1 = hamming_code(d1)
     code2 = hamming_code(d2)
     hg_code = hypergraph_product(code1, code2)
-    return hg_code, code1, code2
+    return hg_code
