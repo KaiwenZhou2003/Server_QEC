@@ -67,8 +67,8 @@ class min_sum_decoder:
         self.hz = hz  # 稀疏矩阵
         self.p = p
 
-    def count_conflicts(self, syndrome,flip_idx):
-        return np.sum(self.hz[:,flip_idx]^syndrome)
+    def update_vec(self, flip_idx, last_vec):
+        return self.hz[:,flip_idx]^last_vec
 
     def our_bp_decode(self, syndrome, **kwargs):
         from ldpc import bp_decoder
@@ -87,24 +87,27 @@ class min_sum_decoder:
         n = self.hz.shape[1]
         cur_guess = np.zeros(n, dtype=int)
         cur_conflicts = np.sum(syndrome)
+        cur_vec = syndrome.copy()
         best_conflicts = cur_conflicts
         best_guess = cur_guess
+        best_vec = cur_vec
         for _ in range(1, order + 1):
-            best_addconflicts = 0
             for i in range(n):
                 if cur_guess[i] == 0:
                     try_guess = cur_guess.copy()
                     try_guess[i] = 1
-                    try_addconflicts = self.count_conflicts(syndrome, i)
-                    if try_addconflicts < best_addconflicts:
-                        best_addconflicts = try_addconflicts
+                    vec = self.update_vec(i, cur_vec)
+                    try_conflicts = np.sum(vec)
+                    if try_conflicts < best_conflicts:
+                        best_conflicts = try_conflicts
                         best_guess = try_guess
-            best_conflicts += best_addconflicts
-            if best_addconflicts == 0:
+                        best_vec = vec
+            if best_conflicts == cur_conflicts:
                 break
             else:
                 cur_conflicts = best_conflicts
                 cur_guess = best_guess
+                cur_vec = best_vec
         return best_guess, best_conflicts
 
     def frozen_greedy_decode(self, syndrome, order=6, max_iter=10):
@@ -125,7 +128,7 @@ class min_sum_decoder:
 
 class guass_decoder(Decoder):
     def __init__(self, **kwargs):
-        super().__init__("Gauss_" + str(kwargs.get("mode", "both")))
+        super().__init__("Sparse_Gauss_" + str(kwargs.get("mode", "both")))
         self.mode = kwargs.get("mode", "both")
 
     def set_h(self, code_h, prior, p, **kwargs):

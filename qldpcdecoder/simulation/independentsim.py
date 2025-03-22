@@ -55,41 +55,43 @@ def measure_noise_simulation(code, error_rate, decoders,num_trials,num_repeat):
     for decoder in decoders:
         mat = np.hstack((hx,np.identity(hx.shape[0])))
         decoder.set_h(mat,[None],error_rate)
-        for i in range(num_trials):
-            true_errors = []
-            true_meaurement_errors = []
+    
+    for i in range(num_trials):
+        true_errors = []
+        true_meaurement_errors = []
+        
+        syndromes = []
+        for j in range(num_repeat):
+            # generate error
+            if j == 0:
+                error = np.zeros(N).astype(int)
+                for q in range(N):
+                    if np.random.rand() < p:
+                        error[q] = 1
+                
+                measurement_error = np.zeros(hx.shape[0]).astype(int)
+                for c in range(hx.shape[0]):
+                    if np.random.rand() < measure_p:
+                        measurement_error[c] = 1
+                syndrome = (hx @ error + measurement_error) % 2
+            else:
+                error = np.zeros(N).astype(int)
+                for q in range(N):
+                    if np.random.rand() < p:
+                        error[q] = 1
+                measurement_error = np.zeros(hx.shape[0]).astype(int)
+                for c in range(hx.shape[0]):
+                    if np.random.rand() < measure_p:
+                        measurement_error[c] = 1
+                syndrome = (hx @ error + measurement_error) % 2
+                syndrome = (syndrome + true_meaurement_errors[-1]) %2
+            true_errors.append(error)
+            true_meaurement_errors.append(measurement_error)
+            syndromes.append(syndrome)
+        if np.sum(np.sum(error) for error in true_errors) + np.sum(np.sum(measurement_error) for measurement_error in true_meaurement_errors) == 0:
+            continue
+        for decoder in decoders:
             pred_e_ms = []
-            syndromes = []
-            for j in range(num_repeat):
-                # generate error
-                if j == 0:
-                    error = np.zeros(N).astype(int)
-                    for q in range(N):
-                        if np.random.rand() < p:
-                            error[q] = 1
-                    
-                    measurement_error = np.zeros(hx.shape[0]).astype(int)
-                    for c in range(hx.shape[0]):
-                        if np.random.rand() < measure_p:
-                            measurement_error[c] = 1
-                    syndrome = (hx @ error + measurement_error) % 2
-                else:
-                    error = np.zeros(N).astype(int)
-                    for q in range(N):
-                        if np.random.rand() < p:
-                            error[q] = 1
-                    measurement_error = np.zeros(hx.shape[0]).astype(int)
-                    for c in range(hx.shape[0]):
-                        if np.random.rand() < measure_p:
-                            measurement_error[c] = 1
-                    syndrome = (hx @ error + measurement_error) % 2
-                    syndrome = (syndrome + true_meaurement_errors[-1]) %2
-                true_errors.append(error)
-                true_meaurement_errors.append(measurement_error)
-                syndromes.append(syndrome)
-            if np.sum(np.sum(error) for error in true_errors) + np.sum(np.sum(measurement_error) for measurement_error in true_meaurement_errors) == 0:
-                continue
-            
             for j in range(num_repeat):
                 """Decode"""
                 syndrome = syndromes[j]
@@ -117,9 +119,9 @@ def measure_noise_simulation(code, error_rate, decoders,num_trials,num_repeat):
                 cumulative_true_error = (cumulative_true_error + true_error) % 2
                     
             residual_error = (cumulative_error + cumulative_true_error) % 2
-            residual_error[int(len(cumulative_error)/2-1)] = 0
+            # residual_error[int(len(cumulative_error)/2-1)] = 0
             flag = (lz @ residual_error % 2).any()
-            if flag == 1:
+            if flag:
                 error_num[decoder.name] += 1
                 print(f"{decoder.name} {np.nonzero(cumulative_error)[0]}, error HW = {np.nonzero(cumulative_true_error)[0]}")
     print("logistic qubits", end='    ')
@@ -127,9 +129,9 @@ def measure_noise_simulation(code, error_rate, decoders,num_trials,num_repeat):
         print(f"{np.nonzero(lz_arr)[0]}", end='    ')
     print()
     print('-'*10+"decoding simulation results"+'-'*10)
-    logical_error_rate = {decoder.name: error_num[decoder.name]*100/num_trials for decoder in decoders}
-    logical_error_rate_per_round = {decoder.name: 1 - (1 - logical_error_rate[decoder.name]) ** (1 / num_repeat) for decoder in decoders}
+    logical_error_rate = {decoder.name: error_num[decoder.name]/num_trials for decoder in decoders}
+    logical_error_rate_per_round = {decoder.name: (1 - (1 - logical_error_rate[decoder.name]) ** (1 / num_repeat)) for decoder in decoders}
     for decoder in decoders:
-        print(f"{decoder.name} logical error rate per round: {logical_error_rate_per_round[decoder.name]:.6f}%")
-        print(f"{decoder.name} logical error rate: {logical_error_rate[decoder.name]:.6f}%")
+        print(f"{decoder.name} logical error rate per round: {logical_error_rate_per_round[decoder.name]:.6f}")
+        print(f"{decoder.name} logical error rate: {logical_error_rate[decoder.name]:.6f}")
     return [logical_error_rate, logical_error_rate_per_round]

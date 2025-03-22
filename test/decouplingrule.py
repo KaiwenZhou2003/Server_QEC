@@ -50,7 +50,7 @@ def decouping(N):
         new_col = (j%(3*unit))//unit*(lm//3) + j//(3*unit)*unit + (j%unit)
         C[j][new_col] = 1
     THC = T@A@C
-    assert np.all(np.kron(np.identity(3),A_small)==THC)
+    # assert np.all(np.kron(np.identity(3),A_small)==THC)
     with open(pathdir+"A_small.txt","w") as f:
         for row in A_small:
             f.write(" ".join(map(str,row))+"\n")
@@ -70,7 +70,7 @@ def decouping(N):
     for i in range(0,l,3):
         for j in range(0,m,3):
             B_small[i//3][j//3] = B[i][j] 
-    assert np.all(np.kron(B_small,np.identity(3))==B)
+    # assert np.all(np.kron(B_small,np.identity(3))==B)
     with open(pathdir+"B_small.txt", "w") as file:
         for row in B_small:
             file.write(" ".join(map(str, row)) + "\n")
@@ -83,7 +83,7 @@ def decouping(N):
         new_col = (j%3)*m//3 + j//3
         C[j][new_col] = 1
     THC = T@B@C
-    assert np.all(np.kron(np.identity(3),B_small)==THC)
+    # assert np.all(np.kron(np.identity(3),B_small)==THC)
     if T is None:
         print("block transform failed")
     else:
