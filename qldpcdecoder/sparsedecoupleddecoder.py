@@ -291,7 +291,7 @@ class DecoupledHGDecoder(Decoder):
             syndrome_col = syndrome[:, col]
             correction = self.decoderA.decode(syndrome_col)  # 调用经典解码器
             L[:, col] = correction[:self.nA]
-        return L.reshape(-1)
+        return L.toarray().flatten() 
 
     def decode_right(self, syndrome):
         """解码右部分"""
@@ -301,7 +301,7 @@ class DecoupledHGDecoder(Decoder):
             syndrome_row = syndrome[row, :]
             correction = self.decoderB_T.decode(syndrome_row[:self.mB])  # 调用转置解码器
             R[row, :] = correction[:self.mB]
-        return R.reshape(-1)
+        return R.toarray().flatten() 
                 
 def DecoupledDecoder(code, p, **kwargs):
     """Factory function to create a decoder based on code type."""

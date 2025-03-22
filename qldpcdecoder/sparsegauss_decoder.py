@@ -6,12 +6,12 @@ SELECT_COL = True
 
 # 高斯消元法（mod 2），使用稀疏矩阵加速
 def gauss_elimination_mod2(A):
-    A = A.tocsc()  # 使用 CSC 格式，便于列操作
+    A = A.toarray().astype(int)
     n, m = A.shape  # 行数和列数
 
     # 初始化列交换记录和 syndrome_transpose
     col_trans = np.arange(m)
-    syndrome_transpose = identity(n, dtype=int, format='csc')
+    syndrome_transpose = np.identity(n, dtype=int)
     zero_row_counts = 0
 
     for i in range(min(n, m)):
@@ -37,8 +37,8 @@ def gauss_elimination_mod2(A):
         if A[i, i] == 1:
             for j in range(n):
                 if j != i and A[j, i] == 1:
-                    A[j] = (A[j] + A[i]) % 2
-                    syndrome_transpose[j] = (syndrome_transpose[j] + syndrome_transpose[i]) % 2
+                    A[j] = A[j] ^ A[i]
+                    syndrome_transpose[j] = syndrome_transpose[j] ^ syndrome_transpose[i]
 
     # 后处理，删除全 0 行
     A = A[:n - zero_row_counts, :]

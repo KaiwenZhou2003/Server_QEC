@@ -10,8 +10,8 @@ import numpy as np
 from rich.pretty import pprint
 np.random.seed(12561)
 p = 0.005
-css_code = gen_BB_code(144)
-# css_code = gen_HP_ring_code(7,7)
+# css_code = gen_BB_code(144)
+css_code = gen_HP_ring_code(7,7)
 bposddecoder = BPOSD_decoder()
 
 bpdecoder = BP_decoder()
