@@ -1,0 +1,2 @@
+ler {'BPOSD': 0.0026, 'BP': 0.0292, 'Sparse_Gauss_both': 0.0022, 'Decoupled_BB_Decoder_both': 0.002}
+ler_per_round {'BPOSD': 0.00021692529081551726, 'BP': 0.002466520221992452, 'Sparse_Gauss_both': 0.0001835184546945534, 'Decoupled_BB_Decoder_both': 0.00016681963994558124}

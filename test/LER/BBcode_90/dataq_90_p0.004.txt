@@ -1,0 +1,2 @@
+ler {'BPOSD': 0.0034, 'BP': 0.021, 'Sparse_Gauss_both': 0.0029}
+ler_per_round {'BPOSD': 0.0003405213229324966, 'BP': 0.0021201130239353327, 'Sparse_Gauss_both': 0.0002903791465512784}

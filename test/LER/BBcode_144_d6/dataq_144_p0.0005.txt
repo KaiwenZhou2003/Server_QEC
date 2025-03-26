@@ -1,0 +1,2 @@
+Aggregated ler: {'BPOSD': 0.0, 'BP': 0.0002560163850486431, 'Sparse_Gauss_both': 0.0, 'Decoupled_BB_Decoder_both': 0.0}
+Aggregated ler_per_round: {'BPOSD': 0.0, 'BP': 4.267394991408468e-05, 'Sparse_Gauss_both': 0.0, 'Decoupled_BB_Decoder_both': 0.0}
