@@ -692,10 +692,18 @@ def gen_BB_code(N):
         bb_code = create_bivariate_bicycle_codes(
             6, 6, [3], [1, 2], [1, 2], [3]
         )  # 72
+    # Ted's code [[90,8,10]]
+#ell,m = 15,3
+#a1,a2,a3 = 9,1,2
+#b1,b2,b3 = 0,2,7
     elif N == 90:
         bb_code = create_bivariate_bicycle_codes(
             15, 3, [9], [1, 2], [2, 7], [0]
         )  # 90
+    # [[108,8,10]]
+    #ell,m = 9,6
+    #a1,a2,a3 = 3,1,2
+    #b1,b2,b3 = 3,1,2
     elif N == 108:
         bb_code = create_bivariate_bicycle_codes(
             9, 6, [3], [1, 2], [1, 2], [3]
@@ -716,6 +724,14 @@ def gen_BB_code(N):
         bb_code = create_bivariate_bicycle_codes(
             21, 18, [3], [10, 17], [3, 19], [5]
         )  # 756
+    # [[784,24,24]]
+    #ell,m = 28,14
+    #a1,a2,a3=26,6,8
+    #b1,b2,b3=7,9,20
+    elif N == 784:
+        bb_code = create_bivariate_bicycle_codes(
+            28, 14, [26], [6, 8], [9,20], [7]
+        )  # 784
     else:
         print("unsupported N")
     return bb_code
@@ -726,11 +742,11 @@ def gen_HP_ring_code(d1,d2):
     hg_code = hypergraph_product(code1, code2)
     return hg_code
 
-def gen_HP_rep_code(d1,d2):
-    code1 = rep_code(d1)
-    code2 = rep_code(d2)
-    hg_code = hypergraph_product(code1, code2)
-    return hg_code
+# def gen_HP_rep_code(d1,d2):
+#     code1 = rep_code(d1)
+#     code2 = rep_code(d2)
+#     hg_code = hypergraph_product(code1, code2)
+#     return hg_code
 
 def gen_HP_hamming_code(d1,d2):
     code1 = hamming_code(d1)

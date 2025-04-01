@@ -1,18 +1,10 @@
 import qldpcdecoder
 from qldpcdecoder.codes import gen_BB_code, gen_HP_ring_code
-from qldpcdecoder.bpdecoders import BPOSD_decoder, BP_decoder
-from qldpcdecoder.simulation.independentsim import measure_noise_simulation,independentnoise_simulation
-from qldpcdecoder.simulation.bbcodesim import circuit_level_simulation
-from qldpcdecoder.gauss_decoder import guass_decoder
-from qldpcdecoder.decoupleddecoder import ReShapeBBDecoder
-from functools import reduce
-import numpy as np
-from rich.pretty import pprint
+import matplotlib.pyplot as plt
 import os
-from qldpcdecoder.decoupling.blockize import solve_flexible_block_transform
-
+import numpy as np
 def decouping(N):
-    assert N in [72,144,288,756]
+    # assert N in [72,144,288,756]
     css_code = gen_BB_code(N)
     pathdir = "results/"+css_code.name+"/"
     if not os.path.exists(pathdir):
@@ -25,6 +17,11 @@ def decouping(N):
 
     row_part = [lm//3]*3
     col_part = [lm//3]*3
+    fig, ax = plt.subplots(1, 2, figsize=(30, 15))
+    ax[0].imshow(A,cmap='gist_yarg')
+    ax[1].imshow(B,cmap='gist_yarg')
+    plt.savefig(pathdir+"A_B.svg")
+    return
     with open(pathdir+"A_part.txt","w") as f:
         for row in A:
             f.write(" ".join(map(str,row))+"\n")
@@ -100,5 +97,6 @@ def decouping(N):
     print("block transform succeeded")
     
 if __name__ == "__main__":
-    for N in [72,144,288]:
+    for N in [784]:
+        print('N = ',N)
         decouping(N)

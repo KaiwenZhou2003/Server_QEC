@@ -6,7 +6,7 @@ from z3 import And,If,Optimize,Xor,Bool,sat
 import ray
 import numpy as np
 SELECT_COL = True
-
+from .timing import timing
 # 高斯消元法（mod 2）
 def gauss_elimination_mod2(A):
 
@@ -99,32 +99,32 @@ def gauss_elimination_mod2(A):
     """
     后处理，找到孤立的主元，把它们和前面对角线上的主元拼接到一起
     """
-    start_idx = -1
-    for i in range(min(n,m)):
-        if Augmented[i, i] == 1:
-            continue
-        start_idx = i
-        break
+    # start_idx = -1
+    # for i in range(min(n,m)):
+    #     if Augmented[i, i] == 1:
+    #         continue
+    #     start_idx = i
+    #     break
 
-    current_idx = start_idx  # 表示当前全0行的位置
-    for i in range(start_idx, min(n,m)):
-        if Augmented[i, i] == 1:
-            # 与上方的全0行，行交换
-            temp = Augmented[current_idx, :].copy()
-            Augmented[current_idx, :] = Augmented[i, :]
-            Augmented[i, :] = temp
+    # current_idx = start_idx  # 表示当前全0行的位置
+    # for i in range(start_idx, min(n,m)):
+    #     if Augmented[i, i] == 1:
+    #         # 与上方的全0行，行交换
+    #         temp = Augmented[current_idx, :].copy()
+    #         Augmented[current_idx, :] = Augmented[i, :]
+    #         Augmented[i, :] = temp
 
-            temp2 = syndrome_transpose[i].copy()
-            syndrome_transpose[i] = syndrome_transpose[current_idx]
-            syndrome_transpose[current_idx] = temp2
+    #         temp2 = syndrome_transpose[i].copy()
+    #         syndrome_transpose[i] = syndrome_transpose[current_idx]
+    #         syndrome_transpose[current_idx] = temp2
 
-            # 与左边的全0列，列交换
-            temp = Augmented[:, current_idx].copy()
-            Augmented[:, current_idx] = Augmented[:, i]
-            Augmented[:, i] = temp
-            col_trans[i], col_trans[current_idx] = col_trans[current_idx], col_trans[i]
+    #         # 与左边的全0列，列交换
+    #         temp = Augmented[:, current_idx].copy()
+    #         Augmented[:, current_idx] = Augmented[:, i]
+    #         Augmented[:, i] = temp
+    #         col_trans[i], col_trans[current_idx] = col_trans[current_idx], col_trans[i]
 
-            current_idx += 1
+    #         current_idx += 1
 
     """
     删除最后的全0行
@@ -375,22 +375,18 @@ class guass_decoder(Decoder):
         self.syndrome_transpose = syndrome_transpose
         self.B = hz_trans[:, len(hz_trans) : len(hz_trans[0])]
         # print("density of B:",np.sum(self.B)/(len(self.B)*len(self.B[0])))
-        print("row density of B:", np.sum(self.B, axis=0))
-        if np.mean(np.sum(self.B, axis=0)) > 5:
-            print("B is dense, may cause low decoding performance, use bp decoder instead")
-            bpdecoder = BP_decoder()
-            bpdecoder.set_h(self.hz,self.prior, self.p)
-            self.decode = bpdecoder.decode
-        else:
-            print(f"B shape = ({len(self.B)}, {len(self.B[0])})")
-            weights = [
-                np.log((1 - p) / p) for i in range(self.hz.shape[1])
-            ]  # 初始每个qubit的对数似然比
-            assert np.all([w > 0 for w in weights])
-            Ig = np.identity(len(self.hz_trans[0]) - len(self.hz_trans))
-            self.BvIg = np.vstack([self.B, Ig])
-            self.ms_decoder = min_sum_decoder(self.BvIg, self.error_rate)
-
+        print("row density of B:", np.sum(self.B, axis=1))
+        # if np.mean(np.sum(self.B, axis=0)) > 5:
+        #     print("B is dense, may cause low decoding performance, use bp decoder instead")
+        #     bpdecoder = BP_decoder()
+        #     bpdecoder.set_h(self.hz,self.prior, self.p)
+        #     self.decode = bpdecoder.decode
+        # else:
+        print(f"B shape = ({len(self.B)}, {len(self.B[0])})")
+        Ig = np.identity(len(self.hz_trans[0]) - len(self.hz_trans))
+        self.BvIg = np.vstack([self.B, Ig])
+        self.ms_decoder = min_sum_decoder(self.BvIg, self.error_rate)
+    # @timing(decoder_info="Gauss Decoder no sparse", log_file="timing.log")
     def decode(self, syndrome,order=5):
         syndrome_copy = calculate_tran_syndrome(
             syndrome.copy(), self.syndrome_transpose
@@ -419,8 +415,8 @@ class guass_decoder(Decoder):
                 our_result = bp_result
             else:
                 our_result = greedy_result
-        # assert ((self.hz_trans @ our_result) % 2 == syndrome_copy).all()
+        assert ((self.hz_trans @ our_result) % 2 == syndrome_copy).all()
         trans_results = calculate_original_error(our_result, self.col_trans)
-        # assert ((self.hz @ trans_results) % 2 == syndrome).all(), trans_results
+        assert ((self.hz @ trans_results) % 2 == syndrome).all(), trans_results
         return trans_results
 
