@@ -19,7 +19,7 @@ class BPOSD_decoder(Decoder):
             osd_order=7,
             input_vector_type="syndrome",
         )
-    # @timing(decoder_info="BP OSD Decoder", log_file="timing.log")
+    @timing(decoder_info="BP OSD Decoder", log_file="timing.log")
     def decode(self,syndrome):
         self.decoder.decode(syndrome)
         return self.decoder.osdw_decoding
@@ -40,7 +40,6 @@ class BPOSD0_decoder(Decoder):
             osd_order=0,
             input_vector_type="syndrome",
         )
-    # @timing(decoder_info="BP OSD Decoder", log_file="timing.log")
     def decode(self,syndrome):
         self.decoder.decode(syndrome)
         return self.decoder.osdw_decoding

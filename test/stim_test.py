@@ -9,13 +9,15 @@ from functools import reduce
 import numpy as np
 from rich.pretty import pprint
 import ray
-p = 0.001
-css_code = gen_BB_code(72)
+p = 0.005
+css_code = gen_BB_code(144)
+print(css_code.N)
+print(css_code.hz.sum(axis=0))
 bposddecoder = BPOSD_decoder()
 
 bpdecoder = BP_decoder()
 gaussdecoder = guass_decoder()
 
 # reshapeddecoder = ReShapeBBDecoder(,css_code.lz,A,B)
-pprint(circuit_level_simulation(css_code,p,[gaussdecoder,bposddecoder,bpdecoder],num_trials=1000,num_repeat=6,method=0,plot=True,W=1))
+pprint(circuit_level_simulation(css_code,p,[bposddecoder,bpdecoder],num_trials=1000,num_repeat=3,method=0,plot=True,W=1))
 

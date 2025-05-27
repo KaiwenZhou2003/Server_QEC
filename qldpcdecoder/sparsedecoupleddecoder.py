@@ -191,10 +191,10 @@ class DecoupledHGDecoder(Decoder):
         # 初始化解码器
         self.decoderA = guass_decoder(mode=self.decoders_mode)
         h_A = hstack([self.deltaA, identity(self.mA, format='csr')])
-        self.decoderA.set_h(h_A, prior=[None], p=p)
+        self.decoderA.set_h(h_A.toarray().astype(int), prior=[None], p=p)
         self.decoderB_T = guass_decoder(mode=self.decoders_mode)
         h_BT = hstack([self.deltaB.T[:self.mB, :], identity(self.mB, format='csr')])
-        self.decoderB_T.set_h(h_BT, prior=[None], p=p)
+        self.decoderB_T.set_h(h_BT.toarray().astype(int), prior=[None], p=p)
 
     @timing(decoder_info="HG Decoder", log_file="timing.log")
     def decode(self, syndrome):

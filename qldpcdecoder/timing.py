@@ -14,7 +14,7 @@ def timing(decoder_info=None, log_file=None):
             end_time = time.time()
             elapsed_time = end_time - start_time
 
-            message = f"[{decoder_info}] Function '{func.__name__}' took {elapsed_time:.4f} seconds to run."
+            message = f"[{decoder_info}] Function '{func.__name__}' took {elapsed_time:.8f} seconds to run."
             if log_file:
                 with open(log_file, "a") as f:
                     f.write(message + "\n")

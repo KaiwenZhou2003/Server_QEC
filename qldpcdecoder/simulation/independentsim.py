@@ -44,7 +44,7 @@ def independentnoise_simulation(code, error_rate, decoders,num_trials,**kwargs):
         print(f"{decoder.name} Decoding error rate: {logical_error_rate:.6f}%")
 
 
-
+from time import perf_counter
 
 
 def measure_noise_simulation(code, error_rate, decoders,num_trials,num_repeat):
@@ -57,6 +57,7 @@ def measure_noise_simulation(code, error_rate, decoders,num_trials,num_repeat):
     N = hx.shape[1]
     print("___ Independent Noise Simulation ___")
     error_num = {decoder.name : 0 for decoder in decoders}
+    decodingtime = {decoder.name : [] for decoder in decoders}
     for decoder in decoders:
         mat = np.hstack((hx,np.identity(hx.shape[0])))
         decoder.set_h(mat,[None],error_rate)
@@ -111,7 +112,14 @@ def measure_noise_simulation(code, error_rate, decoders,num_trials,num_repeat):
                     if np.sum(new_syndrome) == 0:
                         pred_e_ms.append(np.zeros(N+hx.shape[0]))
                         continue
+                    start_time = perf_counter()
                     correction = decoder.decode(new_syndrome.astype(int))
+                    end_time = perf_counter()
+                    if decoder.name == "BP":
+                        decodingtime[decoder.name].append(decoder.decoder.iter*8*1e-9)
+                    else:
+                        decodingtime[decoder.name].append(end_time - start_time)
+                    
                     pred_e_ms.append(correction)
             
             pred_errors = [pred_e_m[:N] for pred_e_m in pred_e_ms]
@@ -139,7 +147,10 @@ def measure_noise_simulation(code, error_rate, decoders,num_trials,num_repeat):
     for decoder in decoders:
         print(f"{decoder.name} logical error rate per round: {logical_error_rate_per_round[decoder.name]:.6f}")
         print(f"{decoder.name} logical error rate: {logical_error_rate[decoder.name]:.6f}")
-    return [logical_error_rate, logical_error_rate_per_round]
+    decoded_time = {decoder.name: np.mean(decodingtime[decoder.name]) for decoder in decoders}
+    for decoder in decoders:
+        print(f"{decoder.name} decoding time: {decoded_time[decoder.name]:.6f}s")
+    return logical_error_rate, logical_error_rate_per_round, decoded_time
 
 
 def generate_trial_data(num_trials, num_repeat, hx, p, measure_p):
@@ -216,11 +227,12 @@ def process_trial(args, decoders, hx, lz):
             cumulative_true_error = (cumulative_true_error + true_error) % 2
         
         residual_error = (cumulative_error + cumulative_true_error) % 2
+        residual_error[int(len(cumulative_error)/2-1)] = 0
         flag = (lz @ residual_error % 2).any()
         trial_results[decoder.name] = 1 if flag else 0
         
         if flag:
-            print(f"Trial {trial_idx}: {decoder.name} {np.nonzero(cumulative_error)[0]}, error HW = {np.nonzero(cumulative_true_error)[0]}")
+            print(f"Trial {trial_idx}: {decoder.name}\n {np.nonzero(cumulative_error)[0]}, true error =\n {np.nonzero(cumulative_true_error)[0]}")
     
     return trial_results
 

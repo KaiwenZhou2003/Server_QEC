@@ -7,7 +7,8 @@ from .utils import (
     gauss_elimination_mod2,
     calculate_tran_syndrome,
     calculate_original_error,
-    calculate_trans_error
+    calculate_trans_error,
+    calculate_trans_prior
 )
 
 
@@ -27,8 +28,7 @@ class min_sum_decoder:
         from ldpc import bp_decoder
         bp_decoder = bp_decoder(
             self.hz,
-            error_rate=self.p,
-            channel_probs=[None],
+            channel_probs=self.p[-self.n:],
             max_iter=100,
             bp_method="ms",
             ms_scaling_factor=0,
@@ -39,7 +39,7 @@ class min_sum_decoder:
     def greedy_decode(self, syndrome, order=6):
         n = self.n
         cur_guess = np.zeros(n, dtype=int)
-        cur_conflicts = np.sum(syndrome)
+        cur_conflicts = syndrome.dot(self.p)
         cur_vec = syndrome.copy()
         best_conflicts = cur_conflicts
         best_guess = cur_guess
@@ -50,7 +50,7 @@ class min_sum_decoder:
                     try_guess = cur_guess.copy()
                     try_guess[i] = 1
                     vec = self.update_vec(i, cur_vec)
-                    try_conflicts = np.sum(vec)
+                    try_conflicts = vec.dot(self.p)
                     if try_conflicts < best_conflicts:
                         best_conflicts = try_conflicts
                         best_guess = try_guess
@@ -109,7 +109,7 @@ class guass_decoder(Decoder):
             print("B shape:", self.B.shape)
             # print("B cols nonzero:", np.sum(self.B, axis=0))
             self.BvIg = vstack([self.B, identity(self.B.shape[1],dtype=int)]).toarray().astype(int)
-            self.ms_decoder = min_sum_decoder(self.BvIg, self.error_rate)
+            self.ms_decoder = min_sum_decoder(self.BvIg, calculate_trans_prior(self.prior,self.col_trans))
 
     # @timing(decoder_info="Sparse Gauss Decoder", log_file="timing.log")
     def decode(self, syndrome):
