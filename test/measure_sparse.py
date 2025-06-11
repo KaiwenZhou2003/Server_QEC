@@ -9,6 +9,7 @@ from functools import reduce
 import numpy as np
 from rich.pretty import pprint
 np.random.seed(12561)
+
 # code = gen_HP_ring_code(7,7)
 ## [[72,8,4]]
 # code1 = create_circulant_matrix(6,[1,2,3])
@@ -49,7 +50,7 @@ bpdecoder = BP_decoder()
 gaussdecoder = guass_decoder(mode='greedy')
 numrepeat = 5
 # greedydecoder = guass_decoder(mode='greedy')
-with open(f"results/{css_code.name}.log", "w") as f:
+with open(f"results/rebuttal/{css_code.name}.log", "w") as f:
     f.write(f"code={css_code.name}\n")
     for p ,num_trials in [(5e-4,100000),(6e-4,100000),(7e-4,80000),(8e-4,80000),(9e-4,50000),(1e-3,50000),(2e-3,40000),(3e-3,30000),(4e-3,20000),(5e-3,10000)]:
         # reshapeddecoder = DecoupledDecoder(css_code,p)

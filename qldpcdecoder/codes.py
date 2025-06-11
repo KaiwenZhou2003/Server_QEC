@@ -741,15 +741,47 @@ def gen_HP_ring_code(d1,d2):
     code2 = ring_code(d2)
     hg_code = hypergraph_product(code1, code2)
     return hg_code
-
-# def gen_HP_rep_code(d1,d2):
-#     code1 = rep_code(d1)
-#     code2 = rep_code(d2)
-#     hg_code = hypergraph_product(code1, code2)
-#     return hg_code
-
 def gen_HP_hamming_code(d1,d2):
     code1 = hamming_code(d1)
     code2 = hamming_code(d2)
     hg_code = hypergraph_product(code1, code2)
     return hg_code
+
+
+def get_benchmark_code(name):
+    if name == "BB_72":
+        return gen_BB_code(72)
+    elif name == "BB_90":
+        return gen_BB_code(90)
+    elif name == "BB_108":
+        return gen_BB_code(108)
+    elif name == "BB_144":
+        return gen_BB_code(144)
+    elif name == "BB_288":
+        return gen_BB_code(288)
+    elif name == "BB_784":
+        return gen_BB_code(784)
+    elif name == "HP_162":
+        return gen_HP_ring_code(9,9)
+    elif name == "HP_338":
+        return gen_HP_ring_code(13,13)
+    elif name == "HP_288":
+        ## [[288,12,6]]
+        code1 = create_circulant_matrix(12,[0,1,2,3])
+        code2 = create_circulant_matrix(12,[0,3,2,7])
+        return hypergraph_product(code1, code2)
+    elif name == "HP_744":
+        code1 = create_circulant_matrix(31,[0,2,5])
+        code2 = create_circulant_matrix(12,[0,3,2,7])
+        return hypergraph_product(code1, code2)
+    elif name == "HP_882":
+        A = 28*create_circulant_matrix(13,[0]) +1* create_circulant_matrix(13,[4])+ 19* create_circulant_matrix(13,[3]) + 28* create_circulant_matrix(13,[2])+1*create_circulant_matrix(13,[1])
+        A -= np.ones((13,13),dtype=int)
+        return create_QC_GHP_codes(169,A,[0,1,6])
+    elif name == "HP_1488":
+        code1 = create_circulant_matrix(31,[0,2,5])
+        code2 = create_circulant_matrix(24,[0,2,8,15])
+        return hypergraph_product(code1, code2)
+    else:
+        raise ValueError(f"Unsupported code: {name}")
+
